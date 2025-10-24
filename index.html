@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Statement Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 1. PDF.js (Mozilla) - to read text from the PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js"></script>
+    <!-- 2. SheetJS (XLSX) - to create the Excel file -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="h-full flex items-center justify-center font-sans text-gray-200 p-6">
+    <div class="w-full max-w-2xl bg-gray-800 rounded-2xl shadow-2xl p-8 space-y-6">
+        <h1 class="text-3xl font-bold text-center text-white">Bank Statement Extractor</h1>
+        <p class="text-center text-gray-400">Upload a PDF bank statement to extract key financial data using AI.</p>
+        
+        <!-- Step 1: File Upload -->
+        <div class="space-y-2">
+            <label for="file-upload" class="block text-sm font-medium text-gray-300">1. Upload PDF Statement</label>
+            <input id="file-upload" type="file" accept="application/pdf"
+                   class="block w-full text-sm text-gray-400
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-lg file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-indigo-600 file:text-white
+                          hover:file:bg-indigo-700
+                          file:cursor-pointer transition-all duration-300">
+        </div>
+
+        <!-- Step 2: Process Button -->
+        <button id="process-btn"
+                class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg
+                       hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500
+                       focus:ring-offset-2 focus:ring-offset-gray-800 transition-all duration-300
+                       disabled:bg-gray-600 disabled:cursor-not-allowed">
+            2. Extract Data with AI
+        </button>
+
+        <!-- Step 3: Loading & Results -->
+        <div id="status-area" class="space-y-4 hidden">
+            <div id="loader" class="loader mx-auto hidden"></div>
+            <div id="message-box" class="text-center text-gray-400 p-3 rounded-lg bg-gray-700/50"></div>
+            
+            <!-- Extracted Data Display -->
+            <div id="results-display" class="hidden space-y-3">
+                <h2 class="text-xl font-semibold text-white">Extracted Data:</h2>
+                <pre id="json-output" class="bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto text-sm"></pre>
+                
+                <!-- Step 4: Download Button -->
+                <button id="download-btn"
+                        class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg
+                               hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500
+                               focus:ring-offset-2 focus:ring-offset-gray-800 transition-all duration-300">
+                    3. Download as Excel
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Set up PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        const fileUpload = document.getElementById('file-upload');
+        const processBtn = document.getElementById('process-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const statusArea = document.getElementById('status-area');
+        const loader = document.getElementById('loader');
+        const messageBox = document.getElementById('message-box');
+        const resultsDisplay = document.getElementById('results-display');
+        const jsonOutput = document.getElementById('json-output');
+
+        let extractedData = null;
+        let pdfFile = null;
+
+        fileUpload.addEventListener('change', (e) => {
+            pdfFile = e.target.files[0];
+            if (pdfFile) {
+                processBtn.disabled = false;
+                resultsDisplay.classList.add('hidden');
+                statusArea.classList.add('hidden');
+                messageBox.textContent = '';
+                extractedData = null;
+            }
+        });
+
+        processBtn.addEventListener('click', handleProcess);
+        downloadBtn.addEventListener('click', downloadExcel);
+
+        async function handleProcess() {
+            if (!pdfFile) {
+                showMessage('Please select a PDF file first.', 'error');
+                return;
+            }
+
+            // Reset UI
+            processBtn.disabled = true;
+            statusArea.classList.remove('hidden');
+            loader.classList.remove('hidden');
+            resultsDisplay.classList.add('hidden');
+            showMessage('Reading PDF text...', 'info');
+
+            try {
+                const pdfText = await readPdfText(pdfFile);
+                showMessage('PDF text extracted. Asking AI to analyze...', 'info');
+                
+                const data = await callGeminiAPI(pdfText);
+
+                // --- FALLBACK LOGIC FOR AVERAGE BALANCE ---
+                // If AI returns null for averageBalance, calculate it as a simple average.
+                if (data.averageBalance === null || data.averageBalance === undefined) {
+                    if (data.openingBalance !== null && data.openingBalance !== undefined &&
+                        data.closingBalance !== null && data.closingBalance !== undefined) {
+                        
+                        // Calculate simple average and round to 2 decimal places
+                        data.averageBalance = (data.openingBalance + data.closingBalance) / 2;
+                        data.averageBalance = Math.round(data.averageBalance * 100) / 100;
+                        
+                        showMessage('AI analysis complete. (Average Balance calculated as fallback)', 'success');
+                    } else {
+                        // This case happens if opening/closing are also null
+                        showMessage('AI analysis complete. (Average Balance not found and could not be calculated)', 'success');
+                    }
+                } else {
+                     showMessage('AI analysis complete.', 'success');
+                }
+                // --- END OF FALLBACK LOGIC ---
+
+                extractedData = data;
+                
+                showMessage('AI analysis complete.', 'success');
+                loader.classList.add('hidden');
+                resultsDisplay.classList.remove('hidden');
+                jsonOutput.textContent = JSON.stringify(extractedData, null, 2);
+                
+            } catch (error) {
+                console.error('Processing failed:', error);
+                showMessage(`Error: ${error.message}`, 'error');
+                loader.classList.add('hidden');
+            } finally {
+                processBtn.disabled = false;
+            }
+        }
+
+        /**
+         * Reads all text content from a PDF file.
+         */
+        async function readPdfText(file) {
+            const fileReader = new FileReader();
+            return new Promise((resolve, reject) => {
+                fileReader.onload = async function() {
+                    try {
+                        const typedarray = new Uint8Array(this.result);
+                        const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+                        let fullText = '';
+
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const textContent = await page.getTextContent();
+                            // Concatenate text items
+                            textContent.items.forEach(item => {
+                                fullText += item.str + ' ';
+                            });
+                            fullText += '\n\n'; // Add page break
+                        }
+                        resolve(fullText);
+                    } catch (err) {
+                        reject(new Error('Failed to read PDF file: ' + err.message));
+                    }
+                };
+                fileReader.readAsArrayBuffer(file);
+            });
+        }
+
+        /**
+         * Calls the Gemini API with the PDF text to extract financial data.
+         */
+        async function callGeminiAPI(pdfText) {
+            const apiKey = ""; // Leave empty string
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `You are an expert financial analyst. Your task is to extract key figures from a bank statement's raw text. The text is from a PDF and may have formatting issues or OCR errors.
+Find the most likely values for the requested fields. Parse numbers correctly, removing currency symbols (like $, £, €) and commas.
+- "openingBalance": The balance at the start of the statement period.
+- "closingBalance": The balance at the end of the statement period.
+- "totalDebit": The total amount of money that left the account (e.g., "Total Debits", "Total Withdrawals", "Total Payments").
+- "totalCredit": The total amount of money that entered the account (e.g., "Total Credits", "Total Deposits").
+- "averageBalance": The average balance for the period. This might be "Average Daily Balance", "Average Ledger Balance", or you may need to calculate it (e.g., (opening + closing) / 2) if it's not explicitly stated. Use an explicitly stated value if available.
+
+If a value is not found, return null.`;
+
+            // Define the JSON schema for the structured response
+            const payload = {
+                contents: [
+                    { parts: [{ text: `Here is the bank statement text:\n\n${pdfText}` }] }
+                ],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "openingBalance": { "type": "NUMBER", "description": "Opening balance of the statement period" },
+                            "closingBalance": { "type": "NUMBER", "description": "Closing balance of the statement period" },
+                            "totalDebit": { "type": "NUMBER", "description": "Total debit or withdrawals" },
+                            "totalCredit": { "type": "NUMBER", "description": "Total credit or deposits" },
+                            "averageBalance": { "type": "NUMBER", "description": "Average balance for the period", "nullable": true }
+                        },
+                        required: ["openingBalance", "closingBalance", "totalDebit", "totalCredit"]
+                    }
+                }
+            };
+            
+            // Exponential backoff for retries
+            let response;
+            let retries = 0;
+            const maxRetries = 3;
+            while (retries < maxRetries) {
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 429 || response.status >= 500) {
+                        // Rate limit or server error
+                        throw new Error(`HTTP error ${response.status}`);
+                    }
+                    
+                    break; // Success
+                    
+                } catch (error) {
+                    retries++;
+                    if (retries >= maxRetries) {
+                        throw new Error(`Failed to fetch from Gemini API after ${maxRetries} attempts: ${error.message}`);
+                    }
+                    const delay = Math.pow(2, retries) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+            }
+
+            const result = await response.json();
+            
+            const candidate = result.candidates?.[0];
+            if (!candidate || !candidate.content?.parts?.[0]?.text) {
+                throw new Error("Invalid response structure from Gemini API.");
+            }
+            
+            // The response text is the JSON string
+            return JSON.parse(candidate.content.parts[0].text);
+        }
+
+        /**
+         * Generates and downloads an Excel file from the extractedData.
+         */
+        function downloadExcel() {
+            if (!extractedData) {
+                showMessage('No data to download.', 'error');
+                return;
+            }
+
+            // 1. Create the data array (Array of Arrays)
+            const data = [
+                ["Field", "Value"],
+                ["Opening Balance", extractedData.openingBalance],
+                ["Closing Balance", extractedData.closingBalance],
+                ["Total Debit", extractedData.totalDebit],
+                ["Total Credit", extractedData.totalCredit],
+                ["Average Banking Balance", extractedData.averageBalance]
+            ];
+
+            // 2. Create a new workbook
+            const wb = XLSX.utils.book_new();
+
+            // 3. Convert the data to a worksheet
+            const ws = XLSX.utils.aoa_to_sheet(data);
+
+            // 4. Add the worksheet to the workbook
+            XLSX.utils.book_append_sheet(wb, ws, "Statement Summary");
+
+            // 5. Trigger the download
+            XLSX.writeFile(wb, "Bank_Statement_Summary.xlsx");
+        }
+        
+        /**
+         * Helper to show messages to the user.
+         */
+        function showMessage(text, type = 'info') {
+            messageBox.textContent = text;
+            messageBox.classList.remove('text-red-400', 'text-green-400', 'text-gray-400');
+            if (type === 'error') {
+                messageBox.classList.add('text-red-400');
+            } else if (type === 'success') {
+                messageBox.classList.add('text-green-400');
+            } else {
+                messageBox.classList.add('text-gray-400');
+            }
+        }
+
+    </script>
+</body>
+</html>
+
