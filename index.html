@@ -196,6 +196,7 @@
 
             const systemPrompt = `You are an expert financial analyst. Your task is to extract key figures from a bank statement's raw text. The text is from a PDF and may have formatting issues or OCR errors.
 Find the most likely values for the requested fields. Parse numbers correctly, removing currency symbols (like $, £, €) and commas.
+
 The output MUST be a valid JSON object matching the following structure and data types:
 {
   "openingBalance": number,
@@ -204,7 +205,15 @@ The output MUST be a valid JSON object matching the following structure and data
   "totalDebit": number,
   "averageBalance": number | null
 }
-For averageBalance (ABB), try to find a figure explicitly labeled as "Average Balance," "Average Monthly Balance," or "ABB." If no such explicit figure is found in the text, return null. DO NOT calculate it yourself if it is not explicitly stated.`;
+
+--- Extraction Logic (Critical) ---
+1. **Opening Balance:** Find the first recorded balance figure in the transaction list. This may be explicitly labeled "Balance B/F" or be the 'Balance' field associated with the earliest date. If the very first transaction is a deposit and the subsequent balance is non-zero, the starting balance (Opening Balance) is 0.
+2. **Closing Balance:** Find the last recorded 'Balance' value in the entire transaction list.
+3. **Total Credit/Debit:**
+    * **Attempt 1 (Preferred):** Look for a specific 'STATEMENT SUMMARY', 'SUMMARY', or 'TOTALS' section that explicitly lists "Total Credit/Deposit" and "Total Debit/Withdrawal" figures.
+    * **Attempt 2 (Fallback):** If no explicit summary is found, you MUST calculate the totals by summing all the values found under the 'Deposit Amt.' (Credit) column and the 'Withdrawal Amt.' (Debit) column in the transaction list across all pages.
+4. **Average Balance (ABB):** Try to find a figure explicitly labeled as "Average Balance," "Average Monthly Balance," or "ABB." If no such explicit figure is found in the text, return null. DO NOT calculate the daily average yourself, as that requires complex date logic.
+`;
 
             const userQuery = `Extract the key financial metrics from the following bank statement text. The data should be formatted exactly as JSON: \n\n--- BANK STATEMENT TEXT ---\n${pdfText}`;
             
@@ -222,7 +231,6 @@ For averageBalance (ABB), try to find a figure explicitly labeled as "Average Ba
                             "closingBalance": { "type": "NUMBER" },
                             "totalCredit": { "type": "NUMBER" },
                             "totalDebit": { "type": "NUMBER" },
-                            // FIX: Changed ["NUMBER", "NULL"] array to "NUMBER" and added "nullable: true"
                             "averageBalance": { "type": "NUMBER", "nullable": true }
                         },
                         "propertyOrdering": ["openingBalance", "closingBalance", "totalCredit", "totalDebit", "averageBalance"]
@@ -274,7 +282,7 @@ For averageBalance (ABB), try to find a figure explicitly labeled as "Average Ba
                 ["Total Credit", data.totalCredit],
                 ["Total Debit", data.totalDebit],
                 // Display calculated ABB clearly
-                ["Average Banking Balance (ABB)", data.averageBalance === null ? 'N/A (Calculated as fallback)' : data.averageBalance]
+                ["Average Banking Balance (ABB)", data.averageBalance === null ? 'N/A (Calculated as simple average)' : data.averageBalance]
             ];
 
             // Create worksheet and workbook
@@ -313,8 +321,8 @@ For averageBalance (ABB), try to find a figure explicitly labeled as "Average Ba
                 
                 const data = await callGeminiAPI(pdfText);
 
-                // --- FALLBACK LOGIC FOR AVERAGE BALANCE ---
-                // If AI returns null for averageBalance, calculate it as a simple average.
+                // --- FALLBACK LOGIC FOR AVERAGE BALANCE (ABB) ---
+                // If AI returns null for averageBalance (meaning it wasn't explicitly found), calculate it as a simple average.
                 if (data.averageBalance === null || data.averageBalance === undefined) {
                     if (data.openingBalance !== null && data.openingBalance !== undefined &&
                         data.closingBalance !== null && data.closingBalance !== undefined) {
@@ -323,7 +331,7 @@ For averageBalance (ABB), try to find a figure explicitly labeled as "Average Ba
                         data.averageBalance = (data.openingBalance + data.closingBalance) / 2;
                         data.averageBalance = Math.round(data.averageBalance * 100) / 100;
                         
-                        showMessage('AI analysis complete. (Average Balance calculated as fallback)', 'success');
+                        showMessage('AI analysis complete. (Average Balance calculated as simple average fallback)', 'success');
                     } else {
                         // This case happens if opening/closing are also null
                         showMessage('AI analysis complete. (Average Balance not found and could not be calculated)', 'success');
