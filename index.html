@@ -23,7 +23,7 @@
             Smart Bank Statement Analyzer
         </h1>
         <p class="text-center text-gray-500 mb-8">
-            Upload your PDF bank statement(s) to instantly extract key financial metrics using AI and export to Excel.
+            Upload your PDF bank statement(s) to instantly extract key financial metrics, specific daily balances, and export to Excel.
         </p>
 
         <!-- Notification Message Box -->
@@ -31,7 +31,6 @@
 
         <!-- File Upload Area -->
         <div class="border-2 border-dashed border-indigo-300 rounded-xl p-8 text-center bg-indigo-50/50 hover:bg-indigo-100/50 transition duration-300 shadow-inner">
-            <!-- UPDATED: Added 'multiple' attribute and changed onchange handler -->
             <input type="file" id="pdf-upload" accept="application/pdf" class="hidden" multiple onchange="displayFileNames(this.files)">
             <label for="pdf-upload" class="cursor-pointer inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-lg text-white bg-indigo-600 hover:bg-indigo-700 transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
@@ -41,7 +40,6 @@
         </div>
 
         <div class="mt-8 flex justify-center">
-             <!-- UPDATED: Changed function call to processFiles -->
              <button onclick="processFiles()" class="w-full sm:w-auto px-8 py-3 border border-transparent text-base font-medium rounded-xl shadow-sm text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-300 transform hover:scale-[1.02]">
                 Start Extraction
             </button>
@@ -212,29 +210,23 @@
 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
+            // UPDATED SYSTEM PROMPT: Now asks for specific daily balances
             const systemPrompt = `You are an expert financial analyst. Your task is to extract key figures from a bank statement's raw text. The text is from a PDF and may have formatting issues or OCR errors.
 Find the most likely values for the requested fields. Parse numbers correctly, removing currency symbols (like $, £, €) and commas.
 
-The output MUST be a valid JSON object matching the following structure and data types:
-{
-  "openingBalance": number,
-  "closingBalance": number,
-  "totalCredit": number,
-  "totalDebit": number,
-  "averageBalance": number | null
-}
+The output MUST be a valid JSON object matching the following structure and data types. Balances must be in the smallest currency unit (e.g., Rupees and paise, USD and cents).
 
 --- Extraction Logic (Critical) ---
-1. **Opening Balance:** Find the first recorded balance figure in the transaction list. This may be explicitly labeled "Balance B/F" or be the 'Balance' field associated with the earliest date. If the very first transaction is a deposit and the subsequent balance is non-zero, the starting balance (Opening Balance) is 0.
-2. **Closing Balance:** Find the last recorded 'Balance' value in the entire transaction list.
-3. **Total Credit/Debit:**
+1. **Total Credit/Debit:**
     * **Attempt 1 (Preferred):** Look for a specific 'STATEMENT SUMMARY', 'SUMMARY', or 'TOTALS' section that explicitly lists "Total Credit/Deposit" and "Total Debit/Withdrawal" figures.
     * **Attempt 2 (Fallback):** If no explicit summary is found, you MUST calculate the totals by summing all the values found under the 'Deposit Amt.' (Credit) column and the 'Withdrawal Amt.' (Debit) column in the transaction list across all pages.
-4. **Average Balance (ABB):** Try to find a figure explicitly labeled as "Average Balance," "Average Monthly Balance," or "ABB." If no such explicit figure is found in the text, return null. DO NOT calculate the daily average yourself, as that requires complex date logic.
+2. **Specific Daily Balances:** Find the closing balance for any day that falls on the 1st, 5th, 10th, 15th, 20th, 25th, or 30th of any month within the statement period. If a specific date is not found (e.g., February 30th), skip it. If a transaction occurs on the target date, provide the final balance after all transactions on that day. Dates must be output in YYYY-MM-DD format.
+3. **Opening/Closing Balances:** Find the balance at the beginning and end of the entire provided text (as proxies for the official Opening/Closing balances of the document).
 `;
 
-            const userQuery = `Extract the key financial metrics from the following bank statement text. The data should be formatted exactly as JSON: \n\n--- BANK STATEMENT TEXT ---\n${pdfText}`;
+            const userQuery = `Extract the key financial metrics, including the balances for the 1st, 5th, 10th, 15th, 20th, 25th, and 30th of every month, from the following bank statement text. The data should be formatted exactly as JSON: \n\n--- BANK STATEMENT TEXT ---\n${pdfText}`;
             
+            // UPDATED JSON SCHEMA
             const payload = {
                 contents: [{ parts: [{ text: userQuery }] }],
                 systemInstruction: {
@@ -249,9 +241,19 @@ The output MUST be a valid JSON object matching the following structure and data
                             "closingBalance": { "type": "NUMBER" },
                             "totalCredit": { "type": "NUMBER" },
                             "totalDebit": { "type": "NUMBER" },
-                            "averageBalance": { "type": "NUMBER", "nullable": true }
+                            "dailyBalances": {
+                                "type": "ARRAY",
+                                "items": {
+                                    "type": "OBJECT",
+                                    "properties": {
+                                        "date": { "type": "STRING", "description": "Date in YYYY-MM-DD format." },
+                                        "balance": { "type": "NUMBER" }
+                                    },
+                                    "propertyOrdering": ["date", "balance"]
+                                }
+                            }
                         },
-                        "propertyOrdering": ["openingBalance", "closingBalance", "totalCredit", "totalDebit", "averageBalance"]
+                        "propertyOrdering": ["openingBalance", "closingBalance", "totalCredit", "totalDebit", "dailyBalances"]
                     }
                 }
             };
@@ -294,25 +296,33 @@ The output MUST be a valid JSON object matching the following structure and data
             
             const summaryTitle = data.fileCount > 1 ? `Combined Financial Summary (${data.fileCount} Statements)` : "Financial Summary";
 
-            // Prepare worksheet data
-            const wsData = [
+            // --- Worksheet 1: Main Summary ---
+            const summaryWsData = [
                 ["Metric", "Value"],
                 ["Opening Balance", data.openingBalance],
                 ["Closing Balance", data.closingBalance],
                 ["Total Credit", data.totalCredit],
                 ["Total Debit", data.totalDebit],
-                // ABB will always be calculated as a simple average for combined statements
-                ["Average Banking Balance (ABB)", data.averageBalance === null ? 'N/A (Calculated as simple average)' : data.averageBalance]
+                ["Average Banking Balance (ABB)", data.averageBalance]
             ];
+            const wsSummary = XLSX.utils.aoa_to_sheet(summaryWsData);
 
-            // Create worksheet and workbook
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            // --- Worksheet 2: Daily Balances ---
+            const dailyHeaders = ["Date (YYYY-MM-DD)", "Balance"];
+            let dailyData = data.dailyBalances.map(item => [item.date, item.balance]);
+            // Filter out null/undefined balances before creating the sheet
+            dailyData = dailyData.filter(row => row[1] !== null && row[1] !== undefined);
+            
+            const wsDaily = XLSX.utils.aoa_to_sheet([dailyHeaders, ...dailyData]);
+
+            // Create workbook and append sheets
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Financial Summary");
+            XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+            XLSX.utils.book_append_sheet(wb, wsDaily, "Daily Balances");
 
             // Write and download the file
             XLSX.writeFile(wb, "Bank_Statement_Summary.xlsx");
-            showMessage(`Summary exported to Bank_Statement_Summary.xlsx`, 'success');
+            showMessage(`Summary exported to Bank_Statement_Summary.xlsx in two sheets: Summary and Daily Balances.`, 'success');
         }
 
         /**
@@ -340,6 +350,7 @@ The output MUST be a valid JSON object matching the following structure and data
                 closingBalance: null,
                 totalCredit: 0,
                 totalDebit: 0,
+                dailyBalances: [],
                 averageBalance: null,
                 fileCount: pdfFiles.length // Track the number of files processed
             };
@@ -347,8 +358,8 @@ The output MUST be a valid JSON object matching the following structure and data
             try {
                 // WARNING: User must upload files in chronological order for correct balances
                 if (pdfFiles.length > 1) {
-                    showMessage(`Processing ${pdfFiles.length} statements. IMPORTANT: Ensure they are uploaded in chronological order for correct Opening/Closing Balances.`, 'info');
-                    await new Promise(resolve => setTimeout(resolve, 3000)); // Pause to let user read the warning
+                    showMessage(`Processing ${pdfFiles.length} statements. IMPORTANT: Ensure they are uploaded in chronological order for correct balances.`, 'info');
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Pause to let user read the warning
                 }
 
                 // Iterate through all selected files
@@ -369,24 +380,33 @@ The output MUST be a valid JSON object matching the following structure and data
                     }
 
                     // 2. Closing Balance: Temporarily update with the closing balance of the current file
-                    // The closing balance of the LAST file will be the final closing balance.
                     combinedData.closingBalance = fileData.closingBalance;
 
                     // 3. Sum Totals: Aggregate Credit and Debit from ALL files
                     combinedData.totalCredit += fileData.totalCredit || 0;
                     combinedData.totalDebit += fileData.totalDebit || 0;
+
+                    // 4. Daily Balances: Concatenate daily balances from all files
+                    if (fileData.dailyBalances && Array.isArray(fileData.dailyBalances)) {
+                        combinedData.dailyBalances.push(...fileData.dailyBalances);
+                    }
                 }
                 
                 // --- FINAL CALCULATION (After processing all files) ---
 
-                // Calculate the final Average Banking Balance (ABB) using the combined period's opening and closing balance
-                if (combinedData.openingBalance !== null && combinedData.closingBalance !== null) {
-                    // Simple Average is used as the official daily product ABB cannot be calculated without daily transaction details
-                    combinedData.averageBalance = (combinedData.openingBalance + combinedData.closingBalance) / 2;
+                // Calculate the final Average Banking Balance (ABB) based on the extracted daily balances
+                const validDailyBalances = combinedData.dailyBalances
+                    .map(item => item.balance)
+                    .filter(b => b !== null && b !== undefined);
+
+                if (validDailyBalances.length > 0) {
+                    const sum = validDailyBalances.reduce((acc, curr) => acc + curr, 0);
+                    combinedData.averageBalance = sum / validDailyBalances.length;
                     combinedData.averageBalance = Math.round(combinedData.averageBalance * 100) / 100;
-                    showMessage(`Combined analysis of ${pdfFiles.length} files complete.`, 'success');
+                    showMessage(`Combined analysis of ${pdfFiles.length} files complete. ${validDailyBalances.length} specific daily balances used for ABB calculation.`, 'success');
                 } else {
-                    showMessage('Combined analysis complete, but opening/closing balances could not be determined for the entire period.', 'error');
+                    combinedData.averageBalance = 0.00; // Default to 0 if no daily balances found
+                    showMessage('Combined analysis complete, but no specific daily balances could be determined.', 'error');
                 }
 
 
@@ -395,17 +415,50 @@ The output MUST be a valid JSON object matching the following structure and data
                 // Display results in a readable table
                 const resultTitle = pdfFiles.length > 1 ? `Combined Financial Summary (${pdfFiles.length} Statements)` : `Extracted Financial Summary`;
                 
+                // Filter out dailyBalances array for the main summary view
+                const mainSummaryData = Object.entries(combinedData)
+                    .filter(([key]) => key !== 'fileCount' && key !== 'dailyBalances');
+                    
+                // Sort daily balances by date for clean display
+                const sortedDailyBalances = combinedData.dailyBalances.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+
                 resultDiv.innerHTML = `
                     <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">${resultTitle}</h3>
-                        ${Object.entries(combinedData)
-                            .filter(([key]) => key !== 'fileCount') // Don't display fileCount
-                            .map(([key, value]) => `
-                            <div class="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm">
-                                <span class="font-medium text-gray-600">${formatLabel(key)}</span>
-                                <span class="font-bold text-lg text-gray-900">${formatValue(value, key)}</span>
+                        <h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">${resultTitle}</h3>
+                        
+                        <!-- Main Summary Metrics -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            ${mainSummaryData.map(([key, value]) => `
+                                <div class="p-3 bg-white rounded-lg shadow-sm border border-gray-200">
+                                    <span class="text-sm font-medium text-gray-500 block">${formatLabel(key)}</span>
+                                    <span class="font-bold text-lg text-gray-900">${formatValue(value, key)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <!-- Specific Daily Balances Table -->
+                        ${sortedDailyBalances.length > 0 ? `
+                            <h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mt-8 mb-4">Balances on Specific Dates</h3>
+                            <div class="overflow-x-auto rounded-lg shadow-md">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-indigo-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
+                                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Closing Balance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        ${sortedDailyBalances.map(item => `
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.date}</td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-700">${formatValue(item.balance, 'closingBalance')}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
                             </div>
-                        `).join('')}
+                        ` : '<p class="text-center text-gray-500 mt-4">No balances found for the specific reporting dates (1st, 5th, 10th, 15th, 20th, 25th, 30th).</p>'}
                     </div>
                 `;
                 
