@@ -204,7 +204,7 @@
          * Calls the Gemini API with the PDF text to extract financial data.
          */
         async function callGeminiAPI(pdfText) {
-            const apiKey = ""; // Leave empty string
+            const apiKey = "AIzaSyBJJBRDuP2_Nm7K6eOyKAw81f2Z6FslyZA"; // Leave empty string
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
             const systemPrompt = `You are an expert financial analyst. Your task is to extract key figures from a bank statement's raw text. The text is from a PDF and may have formatting issues or OCR errors.
