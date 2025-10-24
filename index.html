@@ -23,7 +23,7 @@
             Smart Bank Statement Analyzer
         </h1>
         <p class="text-center text-gray-500 mb-8">
-            Upload your PDF bank statement to instantly extract key financial metrics using AI and export to Excel.
+            Upload your PDF bank statement(s) to instantly extract key financial metrics using AI and export to Excel.
         </p>
 
         <!-- Notification Message Box -->
@@ -31,16 +31,18 @@
 
         <!-- File Upload Area -->
         <div class="border-2 border-dashed border-indigo-300 rounded-xl p-8 text-center bg-indigo-50/50 hover:bg-indigo-100/50 transition duration-300 shadow-inner">
-            <input type="file" id="pdf-upload" accept="application/pdf" class="hidden" onchange="document.getElementById('file-name').textContent = this.files[0].name">
+            <!-- UPDATED: Added 'multiple' attribute and changed onchange handler -->
+            <input type="file" id="pdf-upload" accept="application/pdf" class="hidden" multiple onchange="displayFileNames(this.files)">
             <label for="pdf-upload" class="cursor-pointer inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-lg text-white bg-indigo-600 hover:bg-indigo-700 transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                Upload Bank Statement PDF
+                Upload Bank Statement(s) PDF
             </label>
             <p id="file-name" class="mt-4 text-sm text-gray-600 truncate">No file chosen</p>
         </div>
 
         <div class="mt-8 flex justify-center">
-             <button onclick="processFile()" class="w-full sm:w-auto px-8 py-3 border border-transparent text-base font-medium rounded-xl shadow-sm text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-300 transform hover:scale-[1.02]">
+             <!-- UPDATED: Changed function call to processFiles -->
+             <button onclick="processFiles()" class="w-full sm:w-auto px-8 py-3 border border-transparent text-base font-medium rounded-xl shadow-sm text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-300 transform hover:scale-[1.02]">
                 Start Extraction
             </button>
         </div>
@@ -48,7 +50,7 @@
         <!-- Loader -->
         <div id="loader" class="hidden text-center mt-8">
             <div class="animate-spin inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full" role="status"></div>
-            <p class="mt-2 text-indigo-600 font-semibold">Analyzing PDF with Gemini...</p>
+            <p class="mt-2 text-indigo-600 font-semibold">Analyzing PDF(s) with Gemini...</p>
         </div>
 
         <!-- Results Area -->
@@ -118,6 +120,22 @@
                 fileReader.onerror = () => reject(new Error("Error reading file."));
             });
         }
+
+        /**
+         * Helper function to display selected file names.
+         */
+        function displayFileNames(files) {
+            const nameEl = document.getElementById('file-name');
+            if (files.length === 0) {
+                nameEl.textContent = 'No file chosen';
+            } else if (files.length === 1) {
+                nameEl.textContent = files[0].name;
+            } else {
+                // Show count and first file name
+                nameEl.textContent = `${files.length} files selected (e.g., ${files[0].name})`;
+            }
+        }
+
 
         /**
          * Displays status messages to the user.
@@ -273,6 +291,8 @@ The output MUST be a valid JSON object matching the following structure and data
                 showMessage('No data to export.', 'error');
                 return;
             }
+            
+            const summaryTitle = data.fileCount > 1 ? `Combined Financial Summary (${data.fileCount} Statements)` : "Financial Summary";
 
             // Prepare worksheet data
             const wsData = [
@@ -281,7 +301,7 @@ The output MUST be a valid JSON object matching the following structure and data
                 ["Closing Balance", data.closingBalance],
                 ["Total Credit", data.totalCredit],
                 ["Total Debit", data.totalDebit],
-                // Display calculated ABB clearly
+                // ABB will always be calculated as a simple average for combined statements
                 ["Average Banking Balance (ABB)", data.averageBalance === null ? 'N/A (Calculated as simple average)' : data.averageBalance]
             ];
 
@@ -292,21 +312,21 @@ The output MUST be a valid JSON object matching the following structure and data
 
             // Write and download the file
             XLSX.writeFile(wb, "Bank_Statement_Summary.xlsx");
-            showMessage('Summary exported to Bank_Statement_Summary.xlsx', 'success');
+            showMessage(`Summary exported to Bank_Statement_Summary.xlsx`, 'success');
         }
 
         /**
-         * Main function to handle file processing and API call.
+         * Main function to handle file processing and API call for multiple files.
          */
-        async function processFile(event) {
+        async function processFiles() {
             const fileInput = document.getElementById('pdf-upload');
-            const pdfFile = fileInput.files[0];
+            const pdfFiles = fileInput.files;
             const loader = document.getElementById('loader');
             const resultDiv = document.getElementById('result');
             const exportBtn = document.getElementById('export-btn');
 
-            if (!pdfFile) {
-                showMessage('Please select a PDF file.', 'error');
+            if (pdfFiles.length === 0) {
+                showMessage('Please select at least one PDF file.', 'error');
                 return;
             }
 
@@ -315,39 +335,72 @@ The output MUST be a valid JSON object matching the following structure and data
             exportBtn.classList.add('hidden');
             loader.classList.remove('hidden');
 
+            let combinedData = {
+                openingBalance: null,
+                closingBalance: null,
+                totalCredit: 0,
+                totalDebit: 0,
+                averageBalance: null,
+                fileCount: pdfFiles.length // Track the number of files processed
+            };
+
             try {
-                const pdfText = await readPdfText(pdfFile);
-                showMessage('PDF text extracted. Asking AI to analyze...', 'info');
-                
-                const data = await callGeminiAPI(pdfText);
-
-                // --- FALLBACK LOGIC FOR AVERAGE BALANCE (ABB) ---
-                // If AI returns null for averageBalance (meaning it wasn't explicitly found), calculate it as a simple average.
-                if (data.averageBalance === null || data.averageBalance === undefined) {
-                    if (data.openingBalance !== null && data.openingBalance !== undefined &&
-                        data.closingBalance !== null && data.closingBalance !== undefined) {
-                        
-                        // Calculate simple average and round to 2 decimal places
-                        data.averageBalance = (data.openingBalance + data.closingBalance) / 2;
-                        data.averageBalance = Math.round(data.averageBalance * 100) / 100;
-                        
-                        showMessage('AI analysis complete. (Average Balance calculated as simple average fallback)', 'success');
-                    } else {
-                        // This case happens if opening/closing are also null
-                        showMessage('AI analysis complete. (Average Balance not found and could not be calculated)', 'success');
-                    }
-                } else {
-                     showMessage('AI analysis complete. (Average Balance found in statement)', 'success');
+                // WARNING: User must upload files in chronological order for correct balances
+                if (pdfFiles.length > 1) {
+                    showMessage(`Processing ${pdfFiles.length} statements. IMPORTANT: Ensure they are uploaded in chronological order for correct Opening/Closing Balances.`, 'info');
+                    await new Promise(resolve => setTimeout(resolve, 3000)); // Pause to let user read the warning
                 }
-                // --- END OF FALLBACK LOGIC ---
 
-                extractedData = data;
+                // Iterate through all selected files
+                for (let i = 0; i < pdfFiles.length; i++) {
+                    const pdfFile = pdfFiles[i];
+                    showMessage(`Processing file ${i + 1} of ${pdfFiles.length}: ${pdfFile.name}`, 'info');
+
+                    const pdfText = await readPdfText(pdfFile);
+                    
+                    // Call the AI model for the individual file
+                    const fileData = await callGeminiAPI(pdfText);
+
+                    // --- AGGREGATION LOGIC ---
+                    
+                    // 1. Opening Balance: Only take the opening balance from the FIRST file
+                    if (i === 0) {
+                        combinedData.openingBalance = fileData.openingBalance;
+                    }
+
+                    // 2. Closing Balance: Temporarily update with the closing balance of the current file
+                    // The closing balance of the LAST file will be the final closing balance.
+                    combinedData.closingBalance = fileData.closingBalance;
+
+                    // 3. Sum Totals: Aggregate Credit and Debit from ALL files
+                    combinedData.totalCredit += fileData.totalCredit || 0;
+                    combinedData.totalDebit += fileData.totalDebit || 0;
+                }
+                
+                // --- FINAL CALCULATION (After processing all files) ---
+
+                // Calculate the final Average Banking Balance (ABB) using the combined period's opening and closing balance
+                if (combinedData.openingBalance !== null && combinedData.closingBalance !== null) {
+                    // Simple Average is used as the official daily product ABB cannot be calculated without daily transaction details
+                    combinedData.averageBalance = (combinedData.openingBalance + combinedData.closingBalance) / 2;
+                    combinedData.averageBalance = Math.round(combinedData.averageBalance * 100) / 100;
+                    showMessage(`Combined analysis of ${pdfFiles.length} files complete.`, 'success');
+                } else {
+                    showMessage('Combined analysis complete, but opening/closing balances could not be determined for the entire period.', 'error');
+                }
+
+
+                extractedData = combinedData; // Set the global variable
                 
                 // Display results in a readable table
+                const resultTitle = pdfFiles.length > 1 ? `Combined Financial Summary (${pdfFiles.length} Statements)` : `Extracted Financial Summary`;
+                
                 resultDiv.innerHTML = `
                     <div class="space-y-4">
-                        <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Extracted Financial Summary</h3>
-                        ${Object.entries(data).map(([key, value]) => `
+                        <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">${resultTitle}</h3>
+                        ${Object.entries(combinedData)
+                            .filter(([key]) => key !== 'fileCount') // Don't display fileCount
+                            .map(([key, value]) => `
                             <div class="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm">
                                 <span class="font-medium text-gray-600">${formatLabel(key)}</span>
                                 <span class="font-bold text-lg text-gray-900">${formatValue(value, key)}</span>
