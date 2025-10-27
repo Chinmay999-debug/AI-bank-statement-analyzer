@@ -1,6 +1,6 @@
 <!-- 
 Title: Modern Bank Statement Analyzer (Final Definitive Fix)
-Description: FINAL VERSION. Programmatic calculation guarantees accuracy for totals (Lakh/Crore fix). ABB is calculated as the average of ALL values found in the Balance column, as per user requirement.
+Description: FINAL VERSION. Programmatic calculation guarantees accuracy for totals (Lakh/Crore fix). ABB is calculated as the average of ALL values found in the Balance column, as per user requirement. Now includes ITEMIZED EMI BREAKDOWN (EMI 1, EMI 2, etc.).
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -26,6 +26,7 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
             border-bottom: 1px solid #e5e7eb;
         }
         .summary-row:last-child { border-bottom: none; }
+        .summary-indent { padding-left: 20px; font-style: italic; font-size: 0.9em; }
         .success { background-color: #d1fae5; color: #065f46; border-color: #34d399; }
         .error { background-color: #fee2e2; color: #991b1b; border-color: #f87171; }
         .info { background-color: #e0f7fa; color: #00796b; border-color: #4db6ac; }
@@ -52,8 +53,8 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
 <body class="p-4 sm:p-8">
 
     <header class="text-center mb-12">
-        <h1 class="text-4xl sm:text-5xl font-extrabold text-blue-900 tracking-tight">Bank Statement Analyzer</h1>
-        <p class="text-gray-600 mt-3 text-lg">Accurate for Multi-File Analysis.</p>
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-blue-900 tracking-tight">Financial Statement Analyzer</h1>
+        <p class="text-gray-600 mt-3 text-lg">Guaranteed Accuracy and Speed for Multi-File Analysis.</p>
     </header>
 
     <main class="max-w-2xl mx-auto">
@@ -65,7 +66,7 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                -> Upload Statements (PDF)
+                1. Upload Statements (PDF)
             </h2>
             <input type="file" id="pdfFile" accept=".pdf" multiple
                    class="w-full text-base text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-base file:font-semibold file:bg-blue-500/10 file:text-blue-700 hover:file:bg-blue-500/20 transition duration-150">
@@ -90,7 +91,7 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.272a11.99 11.99 0 00-6.11-4.143 12.004 12.004 0 00-6.111 4.143A11.99 11.99 0 003 12c0 2.21 1.09 4.21 2.88 5.418L3 21h18l-2.88-3.582A11.99 11.99 0 0021 12c0-2.21-1.09-4.21-2.88-5.418z" />
                 </svg>
-                2. Extracted Banking Summary
+                2. Extracted Financial Summary
             </h2>
             
             <div id="summaryContent" class="space-y-1 mb-8">
@@ -247,20 +248,38 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
              let delay = 1200; 
 
              // Instructions: Extract the crucial balances and the raw text columns for JS to process.
-             const systemPrompt = `You are an expert financial analyst. Your task is to extract only the required data from the bank statement text. Find the opening/closing balances and the ENTIRE raw text of the Debit, Credit, and Balance columns.`;
+             const systemPrompt = `You are an expert financial analyst. Your task is to extract only the required data from the bank statement text. Find the opening/closing balances and the ENTIRE raw text of the Debit, Credit, and Balance columns. Additionally, search the transaction descriptions for patterns that indicate EMIs/Loans or Bounced transactions.
+             
+             When searching for EMIs/Loans, find every single individual EMI transaction and its amount. Do not group or sum them. Find keywords like 'EMI', 'LOAN', 'HCFUDUUBLO', 'FINCORP', 'ACH-DR' related to financing companies, or transfer notes that clearly indicate a repayment.`;
 
              const responseSchema = {
                 type: "OBJECT",
                 properties: {
-                    openingBalance: { type: "NUMBER", description: "The absolute first balance listed in the statement." },
-                    closingBalance: { type: "NUMBER", description: "The absolute last balance listed in the statement." },
+                    // Resilient Balance Extraction: Find first/last balance *number* in the entire text
+                    openingBalance: { type: "NUMBER", description: "The absolute first balance number that appears in the transaction list." },
+                    closingBalance: { type: "NUMBER", description: "The absolute last balance number that appears in the transaction list." },
                     rawDebitColumn: { type: "STRING", description: "The ENTIRE raw text of the Debit column content from all pages combined. Return only the raw text values, do not try to sum them." },
                     rawCreditColumn: { type: "STRING", description: "The ENTIRE raw text of the Credit column content from all pages combined. Return only the raw text values, do not try to sum them." },
                     rawBalanceColumn: { type: "STRING", description: "The ENTIRE raw text of the Balance column content from all pages combined. Return only the raw text values, do not try to sum them." },
                     totalCreditSummary: { type: "NUMBER", nullable: true, description: "The explicit total credit amount found in a final summary, or null." },
                     totalDebitSummary: { type: "NUMBER", nullable: true, description: "The explicit total debit amount found in a final summary, or null." },
+                    emiCount: { type: "NUMBER", description: "The count of transactions whose descriptions contain keywords like 'EMI', 'LOAN', 'HCFUDUUBLO', 'FINCORP', or specific loan IDs. (Return 0 if none found)" },
+                    emiBreakdown: { 
+                        type: "ARRAY", 
+                        description: "An array of objects, where each object represents one individual EMI transaction found. Do not group them.",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                // Changed to capture description for context, and amount
+                                descriptionSnippet: { type: "STRING", description: "A short snippet (5-8 words) of the transaction description containing the EMI keyword or loan reference." },
+                                emiAmount: { type: "NUMBER", description: "The amount debited for this individual EMI transaction." }
+                            },
+                            required: ["descriptionSnippet", "emiAmount"]
+                        }
+                    },
+                    bounceCount: { type: "NUMBER", description: "The count of transactions whose descriptions contain keywords like 'RETURN', 'BOUNCE', 'RTN', 'CMP Failed', or 'CHQ WDL RTN'. (Return 0 if none found)" },
                 },
-                required: ["openingBalance", "closingBalance", "rawDebitColumn", "rawCreditColumn", "rawBalanceColumn"]
+                required: ["openingBalance", "closingBalance", "rawDebitColumn", "rawCreditColumn", "rawBalanceColumn", "emiCount", "emiBreakdown", "bounceCount"]
             };
 
             const userQuery = `Analyze the full bank statement for ${fileName}. Text:\n\n${fullText}`;
@@ -289,6 +308,22 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
                         
                         const rawData = JSON.parse(jsonText);
                         
+                        // Process the emiBreakdown safely, ensuring all values are numbers
+                        const emiBreakdownArray = [];
+                        if (Array.isArray(rawData.emiBreakdown)) {
+                            for (const item of rawData.emiBreakdown) {
+                                if (item.descriptionSnippet && item.emiAmount !== undefined) {
+                                    const cleanAmount = cleanNumber(item.emiAmount);
+                                    if (cleanAmount !== null && cleanAmount > 0) {
+                                        emiBreakdownArray.push({
+                                            descriptionSnippet: item.descriptionSnippet,
+                                            emiAmount: cleanAmount
+                                        });
+                                    }
+                                }
+                            }
+                        }
+
                         return {
                             openingBalance: cleanNumber(rawData.openingBalance),
                             closingBalance: cleanNumber(rawData.closingBalance),
@@ -297,6 +332,9 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
                             rawBalanceColumn: rawData.rawBalanceColumn,
                             totalCreditSummary: cleanNumber(rawData.totalCreditSummary),
                             totalDebitSummary: cleanNumber(rawData.totalDebitSummary),
+                            emiCount: cleanNumber(rawData.emiCount) || 0,
+                            emiBreakdown: emiBreakdownArray,
+                            bounceCount: cleanNumber(rawData.bounceCount) || 0,
                         };
                     } else if (response.status === 429 || response.status >= 500) {
                         if (i < MAX_RETRIES - 1) {
@@ -330,7 +368,7 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
             loaderText.textContent = `[1/2] Extracting raw text from ${pdfFile.name}...`;
 
             // Read all pages into one large string
-            const fullText = await readPdfText(pdfFile);
+            const fullText = await pdfFile.size === 0 ? '' : await readPdfText(pdfFile);
 
             // Update loader status
             loaderText.textContent = `[2/2] Sending ${pdfFile.name} to AI for data markers...`;
@@ -360,7 +398,10 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
                 totalDebit: finalTotalDebit,
                 rawBalanceTotal: balanceData.total, 
                 rawBalanceCount: balanceData.count,
-                calculationMethod: calculationMethod
+                calculationMethod: calculationMethod,
+                emiCount: rawData.emiCount,
+                emiBreakdown: rawData.emiBreakdown,
+                bounceCount: rawData.bounceCount,
             };
         }
         
@@ -377,12 +418,26 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
             const lastIndex = allProcessedData.length - 1;
             const finalClosingBalance = allProcessedData[lastIndex].closingBalance;
 
-            // 3. Sum all credits, debits, and raw balance data across all files.
+            // 3. Sum all core financial metrics across all files.
             let finalTotalCredit = allProcessedData.reduce((sum, data) => sum + data.totalCredit, 0);
             let finalTotalDebit = allProcessedData.reduce((sum, data) => sum + data.totalDebit, 0);
             
             let combinedRawBalanceTotal = allProcessedData.reduce((sum, data) => sum + data.rawBalanceTotal, 0);
             let combinedRawBalanceCount = allProcessedData.reduce((sum, data) => sum + data.rawBalanceCount, 0);
+
+            // Sum new metrics: emiCount and bounceCount
+            let finalEmiCount = allProcessedData.reduce((sum, data) => sum + data.emiCount, 0);
+            let finalBounceCount = allProcessedData.reduce((sum, data) => sum + data.bounceCount, 0);
+
+            // Aggregate EMI Breakdown: Collect all individual items from all files
+            const finalEmiBreakdown = [];
+            for (const data of allProcessedData) {
+                finalEmiBreakdown.push(...data.emiBreakdown);
+            }
+            
+            // Calculate the overall total EMI amount from the collected items
+            let finalEmiTotal = finalEmiBreakdown.reduce((sum, item) => sum + item.emiAmount, 0);
+
 
             // 4. Calculate the ABB: Sum of all balances / Count of all balances (User's final required formula)
             let averageBankingBalance = null;
@@ -394,6 +449,7 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
             // Round final totals
             finalTotalCredit = Math.round(finalTotalCredit * 100) / 100;
             finalTotalDebit = Math.round(finalTotalDebit * 100) / 100;
+            finalEmiTotal = Math.round(finalEmiTotal * 100) / 100;
 
             return {
                 openingBalance: finalOpeningBalance,
@@ -401,6 +457,10 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
                 totalCredit: finalTotalCredit,
                 totalDebit: finalTotalDebit,
                 averageBankingBalance: averageBankingBalance,
+                emiCount: finalEmiCount,
+                emiTotal: finalEmiTotal,
+                emiBreakdown: finalEmiBreakdown, // Array of {descriptionSnippet, emiAmount}
+                bounceCount: finalBounceCount,
                 // Include raw metrics for verification
                 rawBalanceTotal: combinedRawBalanceTotal, 
                 rawBalanceCount: combinedRawBalanceCount
@@ -477,8 +537,34 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
                 { label: 'Total Credit', value: formatCurrency(data.totalCredit) },
                 { label: 'Total Debit', value: formatCurrency(data.totalDebit) },
                 { label: `Average Banking Balance (ABB) <span class="text-sm text-gray-500 font-normal ml-2">(Avg. of ${data.rawBalanceCount} balances)</span>`, value: formatCurrency(data.averageBankingBalance) },
-                { label: `Totals Source`, value: `<span class="font-bold text-sm text-blue-600">${method}</span>` },
+                { label: '---', value: '---' }, // Separator
+                { label: 'Total EMI/Loan Deductions (Count)', value: data.emiCount.toFixed(0) },
+                { label: 'Total EMI/Loan Deductions (Amount)', value: formatCurrency(data.emiTotal) },
             ];
+
+            // Add EMI Breakdown details (Itemized as EMI 1, EMI 2, etc.)
+            if (data.emiBreakdown && data.emiBreakdown.length > 0) {
+                items.push({ label: 'Itemized EMI Deductions', value: '' });
+                
+                // Sort by amount descending for better readability
+                const sortedItems = [...data.emiBreakdown].sort((a, b) => b.emiAmount - a.emiAmount);
+                
+                sortedItems.forEach((item, index) => {
+                    const description = item.descriptionSnippet.trim().substring(0, 40) + '...';
+                    const label = `<span class="summary-indent text-gray-500">EMI ${index + 1} (${description})</span>`;
+                    items.push({ 
+                        label: label, 
+                        value: formatCurrency(item.emiAmount) 
+                    });
+                });
+            }
+
+            items.push(
+                { label: '---', value: '---' }, // Separator
+                { label: 'Bounced Transactions (Count)', value: data.bounceCount.toFixed(0) },
+                { label: `Totals Source`, value: `<span class="font-bold text-sm text-blue-600">${method}</span>` }
+            );
+
 
             items.forEach(item => {
                 summaryContent.innerHTML += `
@@ -509,15 +595,42 @@ Description: FINAL VERSION. Programmatic calculation guarantees accuracy for tot
                 ["Total Credit", data.totalCredit],
                 ["Total Debit", data.totalDebit],
                 ["Average Banking Balance (ABB)", data.averageBankingBalance],
+                ["", ""], // Blank row
+                ["Total EMI/Loan Deductions (Count)", data.emiCount],
+                ["Total EMI/Loan Deductions (Amount)", data.emiTotal],
             ];
-            const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+
+            // Prepare Itemized EMI Sheet Data
+            const itemizedEmiData = [
+                ["EMI Breakdown (Itemized)", ""],
+                ["EMI No.", "Amount (INR)", "Description Snippet"],
+            ];
             
-            // Set widths for the summary sheet
-            wsSummary['!cols'] = [{ wch: 30 }, { wch: 20 }];
-            
-            // Create Workbook and add sheet
+            if (data.emiBreakdown && data.emiBreakdown.length > 0) {
+                data.emiBreakdown.forEach((item, index) => {
+                    itemizedEmiData.push([`EMI ${index + 1}`, item.emiAmount, item.descriptionSnippet]);
+                });
+            }
+
+            // Create Workbook
             const wb = XLSX.utils.book_new();
+
+            // Add Summary Sheet
+            const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+            wsSummary['!cols'] = [{ wch: 30 }, { wch: 20 }];
             XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+            // Add Itemized EMI Sheet
+            const wsItemized = XLSX.utils.aoa_to_sheet(itemizedEmiData);
+            wsItemized['!cols'] = [{ wch: 10 }, { wch: 15 }, { wch: 50 }];
+            XLSX.utils.book_append_sheet(wb, wsItemized, "Itemized EMIs");
+
+            // Add Bounce Count (Final line on Summary sheet)
+            summaryData.push(
+                ["", ""], // Blank row
+                ["Bounced Transactions (Count)", data.bounceCount]
+            );
+
 
             // Write and download
             XLSX.writeFile(wb, "Bank_Statement_Summary.xlsx");
