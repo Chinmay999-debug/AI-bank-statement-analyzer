@@ -26,9 +26,9 @@
     --warning: #ffb547;
     --card-shadow: 0 0 0 1px var(--border), 0 8px 32px rgba(0,0,0,0.4);
   }
- 
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
- 
+
   body {
     font-family: 'DM Sans', sans-serif;
     background: var(--bg);
@@ -36,7 +36,7 @@
     min-height: 100vh;
     overflow-x: hidden;
   }
- 
+
   /* Background grid */
   body::before {
     content: '';
@@ -50,7 +50,7 @@
     pointer-events: none;
     z-index: 0;
   }
- 
+
   body::after {
     content: '';
     position: fixed;
@@ -63,7 +63,7 @@
     pointer-events: none;
     z-index: 0;
   }
- 
+
   .wrap {
     position: relative;
     z-index: 1;
@@ -71,7 +71,7 @@
     margin: 0 auto;
     padding: 48px 24px 80px;
   }
- 
+
   /* Header */
   header {
     display: flex;
@@ -79,13 +79,13 @@
     justify-content: space-between;
     margin-bottom: 56px;
   }
- 
+
   .logo {
     display: flex;
     align-items: center;
     gap: 10px;
   }
- 
+
   .logo-icon {
     width: 36px;
     height: 36px;
@@ -95,18 +95,18 @@
     align-items: center;
     justify-content: center;
   }
- 
+
   .logo-icon svg { width: 20px; height: 20px; }
- 
+
   .logo-text {
     font-family: 'Syne', sans-serif;
     font-size: 20px;
     font-weight: 800;
     letter-spacing: -0.5px;
   }
- 
+
   .logo-text span { color: var(--accent); }
- 
+
   .badge {
     font-family: 'DM Mono', monospace;
     font-size: 11px;
@@ -117,13 +117,13 @@
     border-radius: 20px;
     letter-spacing: 0.5px;
   }
- 
+
   /* Hero */
   .hero {
     text-align: center;
     margin-bottom: 52px;
   }
- 
+
   .hero-tag {
     display: inline-flex;
     align-items: center;
@@ -139,7 +139,7 @@
     border-radius: 20px;
     margin-bottom: 20px;
   }
- 
+
   .hero h1 {
     font-family: 'Syne', sans-serif;
     font-size: clamp(32px, 5vw, 52px);
@@ -152,7 +152,7 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
- 
+
   .hero p {
     font-size: 16px;
     color: var(--text2);
@@ -161,14 +161,14 @@
     line-height: 1.7;
     font-weight: 300;
   }
- 
+
   /* Steps */
   .steps {
     display: flex;
     flex-direction: column;
     gap: 16px;
   }
- 
+
   .step-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -176,17 +176,17 @@
     padding: 28px 32px;
     transition: border-color 0.2s;
   }
- 
+
   .step-card:hover { border-color: var(--border2); }
   .step-card.active { border-color: rgba(79,124,255,0.4); background: rgba(79,124,255,0.03); }
- 
+
   .step-header {
     display: flex;
     align-items: center;
     gap: 14px;
     margin-bottom: 20px;
   }
- 
+
   .step-num {
     width: 32px;
     height: 32px;
@@ -202,25 +202,25 @@
     color: var(--accent);
     flex-shrink: 0;
   }
- 
+
   .step-title {
     font-family: 'Syne', sans-serif;
     font-size: 16px;
     font-weight: 700;
     letter-spacing: -0.3px;
   }
- 
+
   .step-sub {
     font-size: 13px;
     color: var(--text2);
     margin-top: 2px;
   }
- 
+
   /* API Key Input */
   .key-input-wrap {
     position: relative;
   }
- 
+
   .key-input {
     width: 100%;
     background: var(--bg);
@@ -234,10 +234,10 @@
     transition: border-color 0.2s, box-shadow 0.2s;
     letter-spacing: 0.5px;
   }
- 
+
   .key-input::placeholder { color: var(--text3); letter-spacing: 0; font-family: 'DM Sans', sans-serif; }
   .key-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,124,255,0.12); }
- 
+
   .key-toggle {
     position: absolute;
     right: 14px;
@@ -251,7 +251,7 @@
     padding: 4px;
   }
   .key-toggle:hover { color: var(--text2); }
- 
+
   .key-hint {
     margin-top: 10px;
     font-size: 12px;
@@ -260,10 +260,10 @@
     align-items: center;
     gap: 6px;
   }
- 
+
   .key-hint a { color: var(--accent); text-decoration: none; }
   .key-hint a:hover { text-decoration: underline; }
- 
+
   /* File Upload */
   .upload-zone {
     border: 2px dashed var(--border2);
@@ -274,12 +274,12 @@
     transition: all 0.2s;
     position: relative;
   }
- 
+
   .upload-zone:hover, .upload-zone.dragover {
     border-color: var(--accent);
     background: rgba(79,124,255,0.04);
   }
- 
+
   .upload-zone input[type="file"] {
     position: absolute;
     inset: 0;
@@ -288,7 +288,7 @@
     width: 100%;
     height: 100%;
   }
- 
+
   .upload-icon {
     width: 48px;
     height: 48px;
@@ -299,18 +299,18 @@
     justify-content: center;
     margin: 0 auto 14px;
   }
- 
+
   .upload-text { font-size: 14px; color: var(--text2); }
   .upload-text strong { color: var(--text); font-weight: 500; }
   .upload-sub { font-size: 12px; color: var(--text3); margin-top: 6px; }
- 
+
   .file-list {
     margin-top: 14px;
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
- 
+
   .file-chip {
     display: flex;
     align-items: center;
@@ -321,11 +321,11 @@
     padding: 10px 14px;
     font-size: 13px;
   }
- 
+
   .file-chip svg { flex-shrink: 0; color: var(--accent); }
   .file-chip .fname { flex: 1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .file-chip .fsize { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); }
- 
+
   /* Analyze Button */
   .analyze-btn {
     width: 100%;
@@ -348,7 +348,7 @@
     position: relative;
     overflow: hidden;
   }
- 
+
   .analyze-btn::before {
     content: '';
     position: absolute;
@@ -357,12 +357,12 @@
     opacity: 0;
     transition: opacity 0.2s;
   }
- 
+
   .analyze-btn:hover::before { opacity: 1; }
   .analyze-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(79,124,255,0.3); }
   .analyze-btn:active { transform: translateY(0); }
   .analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
- 
+
   /* Alert */
   .alert {
     padding: 14px 18px;
@@ -378,14 +378,14 @@
   .alert.error { background: rgba(255,92,124,0.08); border: 1px solid rgba(255,92,124,0.25); color: #ff8fa8; }
   .alert.success { background: rgba(0,210,160,0.08); border: 1px solid rgba(0,210,160,0.25); color: #00d2a0; }
   .alert.info { background: rgba(79,124,255,0.08); border: 1px solid rgba(79,124,255,0.25); color: #7fa8ff; }
- 
+
   /* Progress */
   .progress-wrap {
     display: none;
     margin-top: 20px;
   }
   .progress-wrap.show { display: block; }
- 
+
   .progress-label {
     display: flex;
     justify-content: space-between;
@@ -394,14 +394,14 @@
     margin-bottom: 8px;
     font-family: 'DM Mono', monospace;
   }
- 
+
   .progress-bar {
     height: 4px;
     background: var(--surface2);
     border-radius: 2px;
     overflow: hidden;
   }
- 
+
   .progress-fill {
     height: 100%;
     background: linear-gradient(90deg, var(--accent), var(--accent2));
@@ -409,24 +409,24 @@
     transition: width 0.4s ease;
     width: 0%;
   }
- 
+
   .progress-fill.indeterminate {
     width: 40%;
     animation: slide 1.4s ease-in-out infinite;
   }
- 
+
   @keyframes slide {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(350%); }
   }
- 
+
   .stage-list {
     margin-top: 14px;
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
- 
+
   .stage-item {
     display: flex;
     align-items: center;
@@ -435,10 +435,10 @@
     color: var(--text3);
     transition: color 0.2s;
   }
- 
+
   .stage-item.active { color: var(--text); }
   .stage-item.done { color: var(--accent3); }
- 
+
   .stage-dot {
     width: 6px;
     height: 6px;
@@ -447,15 +447,15 @@
     flex-shrink: 0;
     transition: background 0.2s;
   }
- 
+
   .stage-item.active .stage-dot { background: var(--accent); animation: pulse 1s infinite; }
   .stage-item.done .stage-dot { background: var(--accent3); animation: none; }
- 
+
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
   }
- 
+
   /* Results Card */
   .results-card {
     background: var(--surface);
@@ -466,7 +466,7 @@
     margin-top: 16px;
   }
   .results-card.show { display: block; }
- 
+
   .results-header {
     padding: 24px 32px;
     border-bottom: 1px solid var(--border);
@@ -474,20 +474,20 @@
     align-items: center;
     justify-content: space-between;
   }
- 
+
   .results-title {
     font-family: 'Syne', sans-serif;
     font-size: 17px;
     font-weight: 700;
   }
- 
+
   .results-meta {
     font-size: 12px;
     color: var(--text3);
     font-family: 'DM Mono', monospace;
     margin-top: 4px;
   }
- 
+
   .results-badge {
     font-family: 'DM Mono', monospace;
     font-size: 11px;
@@ -495,10 +495,10 @@
     border-radius: 20px;
     letter-spacing: 0.3px;
   }
- 
+
   .results-badge.programmatic { background: rgba(0,210,160,0.1); color: var(--accent3); border: 1px solid rgba(0,210,160,0.2); }
   .results-badge.summary { background: rgba(79,124,255,0.1); color: var(--accent); border: 1px solid rgba(79,124,255,0.2); }
- 
+
   /* Metrics Grid */
   .metrics-grid {
     display: grid;
@@ -506,11 +506,11 @@
     gap: 1px;
     background: var(--border);
   }
- 
+
   @media (max-width: 560px) {
     .metrics-grid { grid-template-columns: 1fr; }
   }
- 
+
   .metric-cell {
     background: var(--surface);
     padding: 22px 28px;
@@ -519,7 +519,7 @@
   .metric-cell:hover { background: var(--surface2); }
   .metric-cell.full { grid-column: 1 / -1; }
   .metric-cell.highlight { background: rgba(79,124,255,0.04); }
- 
+
   .metric-label {
     font-size: 11px;
     letter-spacing: 0.8px;
@@ -528,7 +528,7 @@
     font-family: 'DM Mono', monospace;
     margin-bottom: 8px;
   }
- 
+
   .metric-value {
     font-family: 'Syne', sans-serif;
     font-size: 22px;
@@ -536,23 +536,23 @@
     letter-spacing: -0.5px;
     color: var(--text);
   }
- 
+
   .metric-value.credit { color: var(--success); }
   .metric-value.debit { color: var(--error); }
   .metric-value.emi { color: var(--warning); }
   .metric-value.accent { color: var(--accent); }
- 
+
   .metric-sub {
     font-size: 12px;
     color: var(--text3);
     margin-top: 4px;
   }
- 
+
   /* EMI Breakdown */
   .emi-section {
     border-top: 1px solid var(--border);
   }
- 
+
   .emi-header {
     padding: 18px 28px;
     display: flex;
@@ -563,7 +563,7 @@
     transition: background 0.15s;
   }
   .emi-header:hover { background: var(--surface2); }
- 
+
   .emi-title {
     font-family: 'Syne', sans-serif;
     font-size: 14px;
@@ -572,7 +572,7 @@
     align-items: center;
     gap: 10px;
   }
- 
+
   .emi-count-badge {
     background: rgba(255,181,71,0.12);
     color: var(--warning);
@@ -582,19 +582,19 @@
     font-size: 11px;
     font-family: 'DM Mono', monospace;
   }
- 
+
   .emi-chevron {
     color: var(--text3);
     transition: transform 0.2s;
   }
   .emi-chevron.open { transform: rotate(180deg); }
- 
+
   .emi-list {
     display: none;
     padding: 0 28px 20px;
   }
   .emi-list.open { display: block; }
- 
+
   .emi-row {
     display: flex;
     align-items: center;
@@ -604,14 +604,14 @@
     font-size: 13px;
   }
   .emi-row:last-child { border-bottom: none; }
- 
+
   .emi-row-num {
     font-family: 'DM Mono', monospace;
     font-size: 11px;
     color: var(--text3);
     width: 32px;
   }
- 
+
   .emi-row-desc {
     flex: 1;
     color: var(--text2);
@@ -620,14 +620,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
- 
+
   .emi-row-amt {
     font-family: 'DM Mono', monospace;
     font-weight: 500;
     color: var(--warning);
     white-space: nowrap;
   }
- 
+
   /* Bounce section */
   .bounce-row {
     padding: 18px 28px;
@@ -636,7 +636,7 @@
     align-items: center;
     justify-content: space-between;
   }
- 
+
   .bounce-label {
     font-size: 13px;
     color: var(--text2);
@@ -644,14 +644,14 @@
     align-items: center;
     gap: 8px;
   }
- 
+
   .bounce-val {
     font-family: 'Syne', sans-serif;
     font-size: 18px;
     font-weight: 700;
     color: var(--error);
   }
- 
+
   /* Download Button */
   .download-btn {
     display: flex;
@@ -676,23 +676,23 @@
     background: rgba(0,210,160,0.08);
     box-shadow: 0 0 20px rgba(0,210,160,0.1);
   }
- 
+
   /* Divider */
   .divider {
     height: 1px;
     background: var(--border);
     margin: 4px 0;
   }
- 
+
   /* Utility */
   .flex { display: flex; align-items: center; }
   .gap-2 { gap: 8px; }
- 
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
- 
+
   /* Separator metric */
   .metric-separator {
     grid-column: 1 / -1;
@@ -710,7 +710,7 @@
 </head>
 <body>
 <div class="wrap">
- 
+
   <!-- Header -->
   <header>
     <div class="logo">
@@ -725,7 +725,7 @@
     </div>
     <span class="badge">v2.0 · Gemini 2.5</span>
   </header>
- 
+
   <!-- Hero -->
   <div class="hero">
     <div class="hero-tag">
@@ -735,13 +735,13 @@
     <h1>Bank Statement<br>Analyzer</h1>
     <p>Drop in your PDFs and get a full financial breakdown in seconds — credits, debits, EMIs, bounces, ABB and more.</p>
   </div>
- 
+
   <!-- Alert -->
   <div id="alertBox" class="alert"></div>
- 
+
   <!-- Steps -->
   <div class="steps">
- 
+
     <!-- Step 1: API Key -->
     <div class="step-card" id="card1">
       <div class="step-header">
@@ -764,7 +764,7 @@
         Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a>
       </div>
     </div>
- 
+
     <!-- Step 2: Upload -->
     <div class="step-card" id="card2">
       <div class="step-header">
@@ -774,7 +774,7 @@
           <div class="step-sub">PDF format · multiple files supported · text-selectable PDFs only</div>
         </div>
       </div>
- 
+
       <div class="upload-zone" id="dropZone">
         <input type="file" id="pdfFile" accept=".pdf" multiple>
         <div class="upload-icon">
@@ -785,16 +785,16 @@
         <div class="upload-text"><strong>Click to upload</strong> or drag & drop</div>
         <div class="upload-sub">Supports multiple bank statement PDFs at once</div>
       </div>
- 
+
       <div id="fileList" class="file-list"></div>
- 
+
       <button class="analyze-btn" id="analyzeBtn" disabled onclick="runAnalysis()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
         </svg>
         Run Analysis
       </button>
- 
+
       <div class="progress-wrap" id="progressWrap">
         <div class="progress-label">
           <span id="progressLabel">Initializing...</span>
@@ -810,7 +810,7 @@
         </div>
       </div>
     </div>
- 
+
     <!-- Results -->
     <div class="results-card" id="resultsCard">
       <div class="results-header">
@@ -820,9 +820,9 @@
         </div>
         <div class="results-badge" id="methodBadge"></div>
       </div>
- 
+
       <div class="metrics-grid" id="metricsGrid"></div>
- 
+
       <div class="emi-section" id="emiSection" style="display:none">
         <div class="emi-header" onclick="toggleEmi()">
           <div class="emi-title">
@@ -835,7 +835,7 @@
         </div>
         <div class="emi-list" id="emiList"></div>
       </div>
- 
+
       <div class="bounce-row" id="bounceRow">
         <div class="bounce-label">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -843,7 +843,7 @@
         </div>
         <div class="bounce-val" id="bounceVal"></div>
       </div>
- 
+
       <button class="download-btn" onclick="downloadExcel()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -851,14 +851,14 @@
         Export as Excel (.xlsx)
       </button>
     </div>
- 
+
   </div>
 </div>
- 
+
 <script>
 // ─── State ───────────────────────────────────────────────────────────────────
 let extractedData = null;
- 
+
 // ─── UI Helpers ──────────────────────────────────────────────────────────────
 function showAlert(msg, type = 'error') {
   const el = document.getElementById('alertBox');
@@ -867,7 +867,7 @@ function showAlert(msg, type = 'error') {
   el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 function hideAlert() { document.getElementById('alertBox').className = 'alert'; }
- 
+
 function setStage(idx) {
   for (let i = 0; i <= 4; i++) {
     const el = document.getElementById(`stage${i}`);
@@ -878,26 +878,26 @@ function setStage(idx) {
   const labels = ['Extracting PDF text...', 'Sending to Gemini AI...', 'Parsing financial data...', 'Calculating totals...', 'Generating report...'];
   document.getElementById('progressLabel').textContent = labels[idx] || 'Done';
 }
- 
+
 function toggleKeyVis() {
   const inp = document.getElementById('apiKey');
   inp.type = inp.type === 'password' ? 'text' : 'password';
 }
- 
+
 function toggleEmi() {
   const list = document.getElementById('emiList');
   const chev = document.getElementById('emiChevron');
   list.classList.toggle('open');
   chev.classList.toggle('open');
 }
- 
+
 // ─── File Handling ────────────────────────────────────────────────────────────
 const pdfInput = document.getElementById('pdfFile');
 const dropZone = document.getElementById('dropZone');
 const analyzeBtn = document.getElementById('analyzeBtn');
- 
+
 pdfInput.addEventListener('change', renderFileList);
- 
+
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop', e => {
@@ -909,13 +909,13 @@ dropZone.addEventListener('drop', e => {
     renderFileList();
   }
 });
- 
+
 function renderFileList() {
   const files = pdfInput.files;
   const list = document.getElementById('fileList');
   list.innerHTML = '';
   if (!files.length) { analyzeBtn.disabled = true; return; }
- 
+
   Array.from(files).forEach(f => {
     const size = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : Math.round(f.size / 1024) + ' KB';
     list.innerHTML += `
@@ -929,7 +929,7 @@ function renderFileList() {
   });
   analyzeBtn.disabled = false;
 }
- 
+
 // ─── PDF Text Extraction ──────────────────────────────────────────────────────
 async function readPdfText(file) {
   const buf = await file.arrayBuffer();
@@ -942,7 +942,7 @@ async function readPdfText(file) {
   }
   return pages.join('\n[PAGE_BREAK]\n');
 }
- 
+
 // ─── Number Helpers ───────────────────────────────────────────────────────────
 function cleanNum(v) {
   if (v === null || v === undefined) return null;
@@ -951,7 +951,7 @@ function cleanNum(v) {
   const n = parseFloat(s);
   return isNaN(n) ? null : n;
 }
- 
+
 function sumRawCol(raw) {
   if (!raw) return { total: 0, count: 0 };
   const tokens = raw.split(/\s+/).filter(t => t.trim());
@@ -962,23 +962,31 @@ function sumRawCol(raw) {
   }
   return { total: Math.round(total * 100) / 100, count };
 }
- 
+
 function fmt(v) {
   if (v === null || v === undefined) return 'N/A';
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 })
     .format(v).replace('₹', '').trim();
 }
- 
-// ─── Gemini API Call ──────────────────────────────────────────────────────────
-async function callGemini(text, fileName, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
- 
+
+// ─── Gemini API Call (with automatic model fallback) ─────────────────────────
+const MODEL_CHAIN = [
+  { id: 'gemini-2.5-flash',   label: 'Gemini 2.5 Flash' },
+  { id: 'gemini-2.0-flash',   label: 'Gemini 2.0 Flash' },
+  { id: 'gemini-1.5-flash',   label: 'Gemini 1.5 Flash' },
+];
+
+let activeModelLabel = MODEL_CHAIN[0].label;
+
+async function callGeminiModel(modelId, text, fileName, apiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
+
   const systemPrompt = `You are an expert financial analyst specializing in Indian bank statements. 
 Extract data with maximum accuracy. For totals, extract the RAW column text so JavaScript can calculate them precisely — do not sum yourself.
 For EMIs/loans, find EVERY individual transaction — never group them.
 Keywords for EMI detection: EMI, LOAN, NACH, ACH-DR, HCFUDUUBLO, FINCORP, NACH DR, ECS DR, repayment-related narrations.
 Keywords for bounce detection: RETURN, BOUNCE, RTN, CMP FAILED, CHQ WDL RTN, DISHONOUR, INWARD RTN.`;
- 
+
   const schema = {
     type: "OBJECT",
     properties: {
@@ -1006,7 +1014,7 @@ Keywords for bounce detection: RETURN, BOUNCE, RTN, CMP FAILED, CHQ WDL RTN, DIS
     },
     required: ["openingBalance", "closingBalance", "rawDebitColumn", "rawCreditColumn", "rawBalanceColumn", "emiCount", "emiBreakdown", "bounceCount"]
   };
- 
+
   const payload = {
     contents: [{ parts: [{ text: `Analyze this bank statement for file: ${fileName}\n\n${text}` }] }],
     systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -1016,60 +1024,108 @@ Keywords for bounce detection: RETURN, BOUNCE, RTN, CMP FAILED, CHQ WDL RTN, DIS
       temperature: 0.1
     }
   };
- 
-  const MAX_RETRIES = 4;
+
+  const MAX_RETRIES = 3;
   let delay = 1500;
- 
+
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
- 
+
     if (res.ok) {
       const json = await res.json();
       const raw = json.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!raw) throw new Error('Gemini returned an empty response.');
       return JSON.parse(raw);
     }
- 
+
     const errBody = await res.json().catch(() => ({}));
-    const errMsg = errBody?.error?.message || `HTTP ${res.status}`;
- 
-    if (res.status === 429 && attempt < MAX_RETRIES - 1) {
+    const status = res.status;
+
+    // Retryable: rate limit
+    if (status === 429 && attempt < MAX_RETRIES - 1) {
+      document.getElementById('progressLabel').textContent = `Rate limited — retrying in ${delay / 1000}s...`;
       await new Promise(r => setTimeout(r, delay));
       delay *= 2;
       continue;
     }
-    throw new Error(`API request failed with status ${res.status}: ${JSON.stringify(errBody)}`);
+
+    // Non-retryable on this model: overload / unavailable / not found → signal to try next model
+    if (status === 503 || status === 502 || status === 404 || status === 429) {
+      const err = new Error(`MODEL_UNAVAILABLE:${status}:${errBody?.error?.message || ''}`);
+      err.tryNextModel = true;
+      throw err;
+    }
+
+    // Hard failure (403, 400, etc.) — no point trying another model
+    throw new Error(`API request failed with status ${status}: ${JSON.stringify(errBody)}`);
   }
+
+  const err = new Error(`MODEL_UNAVAILABLE:429:Max retries exceeded`);
+  err.tryNextModel = true;
+  throw err;
 }
- 
+
+async function callGemini(text, fileName, apiKey) {
+  let lastError = null;
+
+  for (let m = 0; m < MODEL_CHAIN.length; m++) {
+    const model = MODEL_CHAIN[m];
+    activeModelLabel = model.label;
+
+    // Update UI to show which model is being tried
+    const pLabel = document.getElementById('progressLabel');
+    if (m > 0) {
+      pLabel.textContent = `${MODEL_CHAIN[m - 1].label} unavailable — trying ${model.label}...`;
+      showAlert(`⚡ ${MODEL_CHAIN[m-1].label} is overloaded. Switching to ${model.label} automatically...`, 'info');
+      await new Promise(r => setTimeout(r, 800));
+    } else {
+      pLabel.textContent = `Sending to ${model.label}...`;
+    }
+
+    try {
+      const result = await callGeminiModel(model.id, text, fileName, apiKey);
+      if (m > 0) hideAlert(); // clear the fallback notice on success
+      return result;
+    } catch (err) {
+      lastError = err;
+      if (err.tryNextModel && m < MODEL_CHAIN.length - 1) {
+        continue; // try next model
+      }
+      throw err; // hard error or all models exhausted
+    }
+  }
+
+  throw new Error(`All models unavailable. Last error: ${lastError?.message || 'Unknown'}`);
+}
+
 // ─── Process Single File ──────────────────────────────────────────────────────
 async function processSingleFile(file, apiKey) {
   const text = await readPdfText(file);
   setStage(1);
   const raw = await callGemini(text, file.name, apiKey);
   setStage(2);
- 
+
   let totalCredit = raw.totalCreditSummary;
   let totalDebit = raw.totalDebitSummary;
   let method = 'Explicit Summary';
- 
+
   if (!totalCredit || !totalDebit) {
     totalCredit = sumRawCol(raw.rawCreditColumn).total;
     totalDebit = sumRawCol(raw.rawDebitColumn).total;
     method = 'Programmatic (High Accuracy)';
   }
- 
+
   const balData = sumRawCol(raw.rawBalanceColumn);
- 
+
   const emiBreakdown = (raw.emiBreakdown || []).map(e => ({
     descriptionSnippet: e.descriptionSnippet || '',
     emiAmount: cleanNum(e.emiAmount) || 0
   })).filter(e => e.emiAmount > 0);
- 
+
   return {
     openingBalance: cleanNum(raw.openingBalance),
     closingBalance: cleanNum(raw.closingBalance),
@@ -1083,7 +1139,7 @@ async function processSingleFile(file, apiKey) {
     method
   };
 }
- 
+
 // ─── Combine Results ──────────────────────────────────────────────────────────
 function combineResults(all) {
   const first = all[0], last = all[all.length - 1];
@@ -1093,7 +1149,7 @@ function combineResults(all) {
   const balCount = all.reduce((s, d) => s + d.balCount, 0);
   const emiBreakdown = all.flatMap(d => d.emiBreakdown);
   const emiTotal = Math.round(emiBreakdown.reduce((s, e) => s + e.emiAmount, 0) * 100) / 100;
- 
+
   return {
     openingBalance: first.openingBalance,
     closingBalance: last.closingBalance,
@@ -1108,17 +1164,17 @@ function combineResults(all) {
     method: last.method
   };
 }
- 
+
 // ─── Render Results ───────────────────────────────────────────────────────────
 function renderResults(data, fileCount) {
   // Method badge
   const badge = document.getElementById('methodBadge');
   badge.textContent = data.method;
   badge.className = `results-badge ${data.method.includes('Programmatic') ? 'programmatic' : 'summary'}`;
- 
+
   document.getElementById('resultsMeta').textContent =
-    `${fileCount} file${fileCount > 1 ? 's' : ''} · ${data.balCount} balance entries processed`;
- 
+    `${fileCount} file${fileCount > 1 ? 's' : ''} · ${data.balCount} balance entries · ${activeModelLabel}`;
+
   // Metrics
   const grid = document.getElementById('metricsGrid');
   grid.innerHTML = `
@@ -1160,7 +1216,7 @@ function renderResults(data, fileCount) {
       <div class="metric-sub">${data.totalCredit >= data.totalDebit ? 'Net positive' : 'Net negative'}</div>
     </div>
   `;
- 
+
   // EMI Breakdown
   const emiSec = document.getElementById('emiSection');
   if (data.emiBreakdown.length > 0) {
@@ -1177,30 +1233,30 @@ function renderResults(data, fileCount) {
   } else {
     emiSec.style.display = 'none';
   }
- 
+
   // Bounce
   document.getElementById('bounceVal').textContent = data.bounceCount;
- 
+
   document.getElementById('resultsCard').classList.add('show');
 }
- 
+
 // ─── Main Flow ────────────────────────────────────────────────────────────────
 async function runAnalysis() {
   const apiKey = document.getElementById('apiKey').value.trim();
   const files = pdfInput.files;
- 
+
   if (!apiKey) return showAlert('Please enter your Gemini API key in Step 1.', 'error');
   if (!apiKey.startsWith('AIza')) return showAlert('That doesn\'t look like a valid Gemini API key. It should start with "AIza".', 'error');
   if (!files.length) return showAlert('Please select at least one PDF file.', 'error');
- 
+
   hideAlert();
   analyzeBtn.disabled = true;
   document.getElementById('resultsCard').classList.remove('show');
   document.getElementById('progressWrap').classList.add('show');
   setStage(0);
- 
+
   const allResults = [];
- 
+
   try {
     for (let i = 0; i < files.length; i++) {
       document.getElementById('progressLabel').textContent =
@@ -1209,16 +1265,16 @@ async function runAnalysis() {
       const result = await processSingleFile(files[i], apiKey);
       allResults.push(result);
     }
- 
+
     setStage(3);
     const combined = combineResults(allResults);
     extractedData = combined;
- 
+
     setStage(4);
     await new Promise(r => setTimeout(r, 300));
     renderResults(combined, files.length);
     showAlert(`✓ Analysis complete — ${files.length} file${files.length > 1 ? 's' : ''} processed successfully.`, 'success');
- 
+
   } catch (err) {
     const msg = err.message || 'Unknown error';
     showAlert(msg, 'error');
@@ -1229,12 +1285,12 @@ async function runAnalysis() {
     for (let i = 0; i <= 4; i++) document.getElementById(`stage${i}`).className = 'stage-item';
   }
 }
- 
+
 // ─── Excel Export ─────────────────────────────────────────────────────────────
 function downloadExcel() {
   if (!extractedData) return;
   const d = extractedData;
- 
+
   const summary = [
     ['StatementIQ — Financial Summary', ''],
     ['', ''],
@@ -1253,28 +1309,27 @@ function downloadExcel() {
     ['Calculation Method', d.method],
     ['Balance Entries Used', d.balCount],
   ];
- 
+
   const emiRows = [
     ['EMI / Loan Breakdown', '', ''],
     ['#', 'Amount (INR)', 'Description'],
     ...([...d.emiBreakdown].sort((a, b) => b.emiAmount - a.emiAmount)
       .map((e, i) => [i + 1, e.emiAmount, e.descriptionSnippet]))
   ];
- 
+
   const wb = XLSX.utils.book_new();
   const wsSummary = XLSX.utils.aoa_to_sheet(summary);
   wsSummary['!cols'] = [{ wch: 35 }, { wch: 22 }];
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
- 
+
   if (d.emiBreakdown.length > 0) {
     const wsEMI = XLSX.utils.aoa_to_sheet(emiRows);
     wsEMI['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 55 }];
     XLSX.utils.book_append_sheet(wb, wsEMI, 'EMI Breakdown');
   }
- 
+
   XLSX.writeFile(wb, 'StatementIQ_Report.xlsx');
 }
 </script>
 </body>
 </html>
- 
