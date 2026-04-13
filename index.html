@@ -1,667 +1,1280 @@
-<!-- 
-Title: Modern Bank Statement Analyzer (Final Definitive Fix)
-Description: FINAL VERSION. Programmatic calculation guarantees accuracy for totals (Lakh/Crore fix). ABB is calculated as the average of ALL values found in the Balance column, as per user requirement. Now includes ITEMIZED EMI BREAKDOWN (EMI 1, EMI 2, etc.).
--->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern Bank Statement Analyzer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
-    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
-    <script>
-        // Set up PDF.js worker path
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js';
-    </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
-        .card { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .summary-row:last-child { border-bottom: none; }
-        .summary-indent { padding-left: 20px; font-style: italic; font-size: 0.9em; }
-        .success { background-color: #d1fae5; color: #065f46; border-color: #34d399; }
-        .error { background-color: #fee2e2; color: #991b1b; border-color: #f87171; }
-        .info { background-color: #e0f7fa; color: #00796b; border-color: #4db6ac; }
-        .loader {
-            border-top-color: #3b82f6;
-            -webkit-animation: spin 1s linear infinite;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .analysis-status {
-            padding: 12px;
-            border-radius: 8px;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            text-align: center;
-            background-color: #e0f2fe;
-            color: #0369a1;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StatementIQ — AI Bank Statement Analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
+<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js';</script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d14;
+    --surface: #111520;
+    --surface2: #161c2d;
+    --border: #1e2840;
+    --border2: #253050;
+    --accent: #4f7cff;
+    --accent2: #7c5cfc;
+    --accent3: #00d2a0;
+    --text: #e8edf8;
+    --text2: #8895b3;
+    --text3: #4a5572;
+    --success: #00d2a0;
+    --error: #ff5c7c;
+    --warning: #ffb547;
+    --card-shadow: 0 0 0 1px var(--border), 0 8px 32px rgba(0,0,0,0.4);
+  }
+ 
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+ 
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+ 
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+ 
+  body::after {
+    content: '';
+    position: fixed;
+    top: -30%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80vw;
+    height: 60vh;
+    background: radial-gradient(ellipse, rgba(79,124,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+ 
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+ 
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 56px;
+  }
+ 
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+ 
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+ 
+  .logo-icon svg { width: 20px; height: 20px; }
+ 
+  .logo-text {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+ 
+  .logo-text span { color: var(--accent); }
+ 
+  .badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+    background: rgba(0,210,160,0.08);
+    border: 1px solid rgba(0,210,160,0.2);
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+  }
+ 
+  /* Hero */
+  .hero {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+ 
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(79,124,255,0.08);
+    border: 1px solid rgba(79,124,255,0.2);
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+ 
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(32px, 5vw, 52px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #fff 0%, #8895b3 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+ 
+  .hero p {
+    font-size: 16px;
+    color: var(--text2);
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+ 
+  /* Steps */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+ 
+  .step-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    transition: border-color 0.2s;
+  }
+ 
+  .step-card:hover { border-color: var(--border2); }
+  .step-card.active { border-color: rgba(79,124,255,0.4); background: rgba(79,124,255,0.03); }
+ 
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+ 
+  .step-num {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+ 
+  .step-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+ 
+  .step-sub {
+    font-size: 13px;
+    color: var(--text2);
+    margin-top: 2px;
+  }
+ 
+  /* API Key Input */
+  .key-input-wrap {
+    position: relative;
+  }
+ 
+  .key-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 14px 48px 14px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    letter-spacing: 0.5px;
+  }
+ 
+  .key-input::placeholder { color: var(--text3); letter-spacing: 0; font-family: 'DM Sans', sans-serif; }
+  .key-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,124,255,0.12); }
+ 
+  .key-toggle {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text3);
+    transition: color 0.2s;
+    padding: 4px;
+  }
+  .key-toggle:hover { color: var(--text2); }
+ 
+  .key-hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+ 
+  .key-hint a { color: var(--accent); text-decoration: none; }
+  .key-hint a:hover { text-decoration: underline; }
+ 
+  /* File Upload */
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 12px;
+    padding: 36px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+ 
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(79,124,255,0.04);
+  }
+ 
+  .upload-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+ 
+  .upload-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--surface2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 14px;
+  }
+ 
+  .upload-text { font-size: 14px; color: var(--text2); }
+  .upload-text strong { color: var(--text); font-weight: 500; }
+  .upload-sub { font-size: 12px; color: var(--text3); margin-top: 6px; }
+ 
+  .file-list {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+ 
+  .file-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+ 
+  .file-chip svg { flex-shrink: 0; color: var(--accent); }
+  .file-chip .fname { flex: 1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-chip .fsize { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); }
+ 
+  /* Analyze Button */
+  .analyze-btn {
+    width: 100%;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+ 
+  .analyze-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+ 
+  .analyze-btn:hover::before { opacity: 1; }
+  .analyze-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(79,124,255,0.3); }
+  .analyze-btn:active { transform: translateY(0); }
+  .analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+ 
+  /* Alert */
+  .alert {
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    margin-bottom: 16px;
+    display: none;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.5;
+  }
+  .alert.show { display: flex; }
+  .alert.error { background: rgba(255,92,124,0.08); border: 1px solid rgba(255,92,124,0.25); color: #ff8fa8; }
+  .alert.success { background: rgba(0,210,160,0.08); border: 1px solid rgba(0,210,160,0.25); color: #00d2a0; }
+  .alert.info { background: rgba(79,124,255,0.08); border: 1px solid rgba(79,124,255,0.25); color: #7fa8ff; }
+ 
+  /* Progress */
+  .progress-wrap {
+    display: none;
+    margin-top: 20px;
+  }
+  .progress-wrap.show { display: block; }
+ 
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 8px;
+    font-family: 'DM Mono', monospace;
+  }
+ 
+  .progress-bar {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+ 
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+ 
+  .progress-fill.indeterminate {
+    width: 40%;
+    animation: slide 1.4s ease-in-out infinite;
+  }
+ 
+  @keyframes slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+ 
+  .stage-list {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+ 
+  .stage-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text3);
+    transition: color 0.2s;
+  }
+ 
+  .stage-item.active { color: var(--text); }
+  .stage-item.done { color: var(--accent3); }
+ 
+  .stage-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border2);
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+ 
+  .stage-item.active .stage-dot { background: var(--accent); animation: pulse 1s infinite; }
+  .stage-item.done .stage-dot { background: var(--accent3); animation: none; }
+ 
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+ 
+  /* Results Card */
+  .results-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: none;
+    margin-top: 16px;
+  }
+  .results-card.show { display: block; }
+ 
+  .results-header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+ 
+  .results-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+  }
+ 
+  .results-meta {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    margin-top: 4px;
+  }
+ 
+  .results-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+  }
+ 
+  .results-badge.programmatic { background: rgba(0,210,160,0.1); color: var(--accent3); border: 1px solid rgba(0,210,160,0.2); }
+  .results-badge.summary { background: rgba(79,124,255,0.1); color: var(--accent); border: 1px solid rgba(79,124,255,0.2); }
+ 
+  /* Metrics Grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--border);
+  }
+ 
+  @media (max-width: 560px) {
+    .metrics-grid { grid-template-columns: 1fr; }
+  }
+ 
+  .metric-cell {
+    background: var(--surface);
+    padding: 22px 28px;
+    transition: background 0.15s;
+  }
+  .metric-cell:hover { background: var(--surface2); }
+  .metric-cell.full { grid-column: 1 / -1; }
+  .metric-cell.highlight { background: rgba(79,124,255,0.04); }
+ 
+  .metric-label {
+    font-size: 11px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 8px;
+  }
+ 
+  .metric-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+ 
+  .metric-value.credit { color: var(--success); }
+  .metric-value.debit { color: var(--error); }
+  .metric-value.emi { color: var(--warning); }
+  .metric-value.accent { color: var(--accent); }
+ 
+  .metric-sub {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+ 
+  /* EMI Breakdown */
+  .emi-section {
+    border-top: 1px solid var(--border);
+  }
+ 
+  .emi-header {
+    padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .emi-header:hover { background: var(--surface2); }
+ 
+  .emi-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+ 
+  .emi-count-badge {
+    background: rgba(255,181,71,0.12);
+    color: var(--warning);
+    border: 1px solid rgba(255,181,71,0.2);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+  }
+ 
+  .emi-chevron {
+    color: var(--text3);
+    transition: transform 0.2s;
+  }
+  .emi-chevron.open { transform: rotate(180deg); }
+ 
+  .emi-list {
+    display: none;
+    padding: 0 28px 20px;
+  }
+  .emi-list.open { display: block; }
+ 
+  .emi-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .emi-row:last-child { border-bottom: none; }
+ 
+  .emi-row-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    width: 32px;
+  }
+ 
+  .emi-row-desc {
+    flex: 1;
+    color: var(--text2);
+    padding: 0 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+ 
+  .emi-row-amt {
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    color: var(--warning);
+    white-space: nowrap;
+  }
+ 
+  /* Bounce section */
+  .bounce-row {
+    padding: 18px 28px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+ 
+  .bounce-label {
+    font-size: 13px;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+ 
+  .bounce-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--error);
+  }
+ 
+  /* Download Button */
+  .download-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: calc(100% - 56px);
+    margin: 20px 28px 28px;
+    padding: 14px 24px;
+    background: transparent;
+    border: 1px solid var(--accent3);
+    border-radius: 10px;
+    color: var(--accent3);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.2px;
+  }
+  .download-btn:hover {
+    background: rgba(0,210,160,0.08);
+    box-shadow: 0 0 20px rgba(0,210,160,0.1);
+  }
+ 
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+ 
+  /* Utility */
+  .flex { display: flex; align-items: center; }
+  .gap-2 { gap: 8px; }
+ 
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+ 
+  /* Separator metric */
+  .metric-separator {
+    grid-column: 1 / -1;
+    background: var(--surface2);
+    padding: 10px 28px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+</style>
 </head>
-<body class="p-4 sm:p-8">
-
-    <header class="text-center mb-12">
-        <h1 class="text-4xl sm:text-5xl font-extrabold text-blue-900 tracking-tight">Financial Statement Analyzer</h1>
-        <p class="text-gray-600 mt-3 text-lg">Guaranteed Accuracy and Speed for Multi-File Analysis.</p>
-    </header>
-
-    <main class="max-w-2xl mx-auto">
-        
-        <div id="messageBox" class="p-4 border rounded-xl mb-6 hidden font-medium" role="alert"></div>
-
-        <div class="card bg-white p-8 rounded-xl border border-gray-100 mb-8">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                </svg>
-                1. Enter Gemini API Key
-            </h2>
-            <div class="mb-2">
-                <input type="password" id="apiKeyInput" placeholder="Paste your Gemini API key here (AIza...)"
-                       class="w-full px-4 py-3 border border-gray-300 rounded-xl text-base text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono" />
-                <p class="text-xs text-gray-400 mt-2">🔒 Your key is used only in your browser and never sent anywhere except Google's API. Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-500 underline">aistudio.google.com</a>.</p>
-            </div>
+<body>
+<div class="wrap">
+ 
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v2H3V5z" fill="white" opacity="0.9"/>
+          <rect x="3" y="9" width="14" height="8" rx="1" fill="white" opacity="0.5"/>
+          <rect x="5" y="12" width="4" height="2" rx="0.5" fill="white"/>
+        </svg>
+      </div>
+      <span class="logo-text">Statement<span>IQ</span></span>
+    </div>
+    <span class="badge">v2.0 · Gemini 2.5</span>
+  </header>
+ 
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-tag">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="5"/></svg>
+      AI-Powered Analysis
+    </div>
+    <h1>Bank Statement<br>Analyzer</h1>
+    <p>Drop in your PDFs and get a full financial breakdown in seconds — credits, debits, EMIs, bounces, ABB and more.</p>
+  </div>
+ 
+  <!-- Alert -->
+  <div id="alertBox" class="alert"></div>
+ 
+  <!-- Steps -->
+  <div class="steps">
+ 
+    <!-- Step 1: API Key -->
+    <div class="step-card" id="card1">
+      <div class="step-header">
+        <div class="step-num">01</div>
+        <div>
+          <div class="step-title">Gemini API Key</div>
+          <div class="step-sub">Used only in your browser — never stored</div>
         </div>
-
-        <div class="card bg-white p-8 rounded-xl border border-gray-100 mb-8">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                2. Upload Statements (PDF)
-            </h2>
-            <input type="file" id="pdfFile" accept=".pdf" multiple
-                   class="w-full text-base text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-base file:font-semibold file:bg-blue-500/10 file:text-blue-700 hover:file:bg-blue-500/20 transition duration-150">
-            
-            <div id="statusContainer" class="mt-6">
-                <div id="analysisStatus" class="analysis-status hidden"></div>
-                <button id="extractButton" onclick="processFiles()"
-                        class="w-full py-3 px-6 bg-blue-600 text-white font-bold text-lg rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                        disabled>
-                    Start Combined Analysis
-                </button>
-            </div>
-
-            <div id="loader" class="hidden flex flex-col items-center justify-center mt-6">
-                <div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-200 h-10 w-10"></div>
-                <span id="loaderText" class="ml-3 mt-3 text-blue-600 font-medium">Preparing analysis...</span>
-            </div>
+      </div>
+      <div class="key-input-wrap">
+        <input type="password" id="apiKey" class="key-input" placeholder="Paste your API key here  (AIza...)">
+        <button class="key-toggle" onclick="toggleKeyVis()" title="Show/hide key">
+          <svg id="eyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <div class="key-hint">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a>
+      </div>
+    </div>
+ 
+    <!-- Step 2: Upload -->
+    <div class="step-card" id="card2">
+      <div class="step-header">
+        <div class="step-num">02</div>
+        <div>
+          <div class="step-title">Upload Bank Statements</div>
+          <div class="step-sub">PDF format · multiple files supported · text-selectable PDFs only</div>
         </div>
-
-        <div id="resultsCard" class="card bg-white p-8 rounded-xl border border-gray-100 hidden">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.272a11.99 11.99 0 00-6.11-4.143 12.004 12.004 0 00-6.111 4.143A11.99 11.99 0 003 12c0 2.21 1.09 4.21 2.88 5.418L3 21h18l-2.88-3.582A11.99 11.99 0 0021 12c0-2.21-1.09-4.21-2.88-5.418z" />
-                </svg>
-                3. Extracted Financial Summary
-            </h2>
-            
-            <div id="summaryContent" class="space-y-1 mb-8">
-                <!-- Summary Data will be injected here -->
-            </div>
-
-            <button id="downloadButton" onclick="downloadExcel()"
-                    class="mt-8 w-full py-3 px-6 bg-green-600 text-white font-bold text-lg rounded-xl hover:bg-green-700 transition duration-300 ease-in-out flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 inline-block mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L10 11.586l2.293-2.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-                Download Excel Summary (.xlsx)
-            </button>
+      </div>
+ 
+      <div class="upload-zone" id="dropZone">
+        <input type="file" id="pdfFile" accept=".pdf" multiple>
+        <div class="upload-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4f7cff" stroke-width="1.8">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
         </div>
-
-    </main>
-
-    <script>
-        
-        // --- CORE UI FUNCTIONS ---
-        const fileInput = document.getElementById('pdfFile');
-        const extractButton = document.getElementById('extractButton');
-        const loader = document.getElementById('loader');
-        const messageBox = document.getElementById('messageBox');
-        const analysisStatus = document.getElementById('analysisStatus');
-        const loaderText = document.getElementById('loaderText');
-        let extractedData = {};
-        
-        // --- GLOBAL HELPER FUNCTIONS ---
-
-        /**
-         * Checks if a string can be converted to a valid Date object.
-         */
-        function isValidDate(dateString) {
-            if (typeof dateString !== 'string' || dateString.trim() === '') return false;
-            // Attempt to create a Date object
-            const d = new Date(dateString);
-            // Check if it's a valid date (not "Invalid Date") and not NaN
-            return !isNaN(d) && d instanceof Date && !isNaN(d.getTime());
+        <div class="upload-text"><strong>Click to upload</strong> or drag & drop</div>
+        <div class="upload-sub">Supports multiple bank statement PDFs at once</div>
+      </div>
+ 
+      <div id="fileList" class="file-list"></div>
+ 
+      <button class="analyze-btn" id="analyzeBtn" disabled onclick="runAnalysis()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        Run Analysis
+      </button>
+ 
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-label">
+          <span id="progressLabel">Initializing...</span>
+          <span id="progressPct"></span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill indeterminate" id="progressFill"></div></div>
+        <div class="stage-list" id="stageList">
+          <div class="stage-item" id="stage0"><div class="stage-dot"></div>Extracting PDF text</div>
+          <div class="stage-item" id="stage1"><div class="stage-dot"></div>Sending to Gemini AI</div>
+          <div class="stage-item" id="stage2"><div class="stage-dot"></div>Parsing financial data</div>
+          <div class="stage-item" id="stage3"><div class="stage-dot"></div>Calculating totals</div>
+          <div class="stage-item" id="stage4"><div class="stage-dot"></div>Generating report</div>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- Results -->
+    <div class="results-card" id="resultsCard">
+      <div class="results-header">
+        <div>
+          <div class="results-title">Financial Summary</div>
+          <div class="results-meta" id="resultsMeta"></div>
+        </div>
+        <div class="results-badge" id="methodBadge"></div>
+      </div>
+ 
+      <div class="metrics-grid" id="metricsGrid"></div>
+ 
+      <div class="emi-section" id="emiSection" style="display:none">
+        <div class="emi-header" onclick="toggleEmi()">
+          <div class="emi-title">
+            EMI / Loan Deductions
+            <span class="emi-count-badge" id="emiCountBadge"></span>
+          </div>
+          <svg class="emi-chevron" id="emiChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="emi-list" id="emiList"></div>
+      </div>
+ 
+      <div class="bounce-row" id="bounceRow">
+        <div class="bounce-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Bounced Transactions
+        </div>
+        <div class="bounce-val" id="bounceVal"></div>
+      </div>
+ 
+      <button class="download-btn" onclick="downloadExcel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export as Excel (.xlsx)
+      </button>
+    </div>
+ 
+  </div>
+</div>
+ 
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let extractedData = null;
+ 
+// ─── UI Helpers ──────────────────────────────────────────────────────────────
+function showAlert(msg, type = 'error') {
+  const el = document.getElementById('alertBox');
+  el.className = `alert show ${type}`;
+  el.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>${msg}</span>`;
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function hideAlert() { document.getElementById('alertBox').className = 'alert'; }
+ 
+function setStage(idx) {
+  for (let i = 0; i <= 4; i++) {
+    const el = document.getElementById(`stage${i}`);
+    if (i < idx) el.className = 'stage-item done';
+    else if (i === idx) el.className = 'stage-item active';
+    else el.className = 'stage-item';
+  }
+  const labels = ['Extracting PDF text...', 'Sending to Gemini AI...', 'Parsing financial data...', 'Calculating totals...', 'Generating report...'];
+  document.getElementById('progressLabel').textContent = labels[idx] || 'Done';
+}
+ 
+function toggleKeyVis() {
+  const inp = document.getElementById('apiKey');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+ 
+function toggleEmi() {
+  const list = document.getElementById('emiList');
+  const chev = document.getElementById('emiChevron');
+  list.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+ 
+// ─── File Handling ────────────────────────────────────────────────────────────
+const pdfInput = document.getElementById('pdfFile');
+const dropZone = document.getElementById('dropZone');
+const analyzeBtn = document.getElementById('analyzeBtn');
+ 
+pdfInput.addEventListener('change', renderFileList);
+ 
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const dt = e.dataTransfer;
+  if (dt.files.length) {
+    pdfInput.files = dt.files;
+    renderFileList();
+  }
+});
+ 
+function renderFileList() {
+  const files = pdfInput.files;
+  const list = document.getElementById('fileList');
+  list.innerHTML = '';
+  if (!files.length) { analyzeBtn.disabled = true; return; }
+ 
+  Array.from(files).forEach(f => {
+    const size = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : Math.round(f.size / 1024) + ' KB';
+    list.innerHTML += `
+      <div class="file-chip">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <span class="fname">${f.name}</span>
+        <span class="fsize">${size}</span>
+      </div>`;
+  });
+  analyzeBtn.disabled = false;
+}
+ 
+// ─── PDF Text Extraction ──────────────────────────────────────────────────────
+async function readPdfText(file) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    pages.push(content.items.map(it => it.str).join(' '));
+  }
+  return pages.join('\n[PAGE_BREAK]\n');
+}
+ 
+// ─── Number Helpers ───────────────────────────────────────────────────────────
+function cleanNum(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return v;
+  const s = String(v).replace(/[^0-9.]/g, '');
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+ 
+function sumRawCol(raw) {
+  if (!raw) return { total: 0, count: 0 };
+  const tokens = raw.split(/\s+/).filter(t => t.trim());
+  let total = 0, count = 0;
+  for (const t of tokens) {
+    const n = parseFloat(t.replace(/[^0-9.]/g, ''));
+    if (!isNaN(n) && n > 0.01) { total += n; count++; }
+  }
+  return { total: Math.round(total * 100) / 100, count };
+}
+ 
+function fmt(v) {
+  if (v === null || v === undefined) return 'N/A';
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 })
+    .format(v).replace('₹', '').trim();
+}
+ 
+// ─── Gemini API Call ──────────────────────────────────────────────────────────
+async function callGemini(text, fileName, apiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+ 
+  const systemPrompt = `You are an expert financial analyst specializing in Indian bank statements. 
+Extract data with maximum accuracy. For totals, extract the RAW column text so JavaScript can calculate them precisely — do not sum yourself.
+For EMIs/loans, find EVERY individual transaction — never group them.
+Keywords for EMI detection: EMI, LOAN, NACH, ACH-DR, HCFUDUUBLO, FINCORP, NACH DR, ECS DR, repayment-related narrations.
+Keywords for bounce detection: RETURN, BOUNCE, RTN, CMP FAILED, CHQ WDL RTN, DISHONOUR, INWARD RTN.`;
+ 
+  const schema = {
+    type: "OBJECT",
+    properties: {
+      openingBalance: { type: "NUMBER", description: "First balance value in the transaction list." },
+      closingBalance: { type: "NUMBER", description: "Last/final balance value in the transaction list." },
+      rawDebitColumn: { type: "STRING", description: "Entire raw text of the Debit column, all pages combined. Just the raw values, no summing." },
+      rawCreditColumn: { type: "STRING", description: "Entire raw text of the Credit column, all pages combined. Just the raw values, no summing." },
+      rawBalanceColumn: { type: "STRING", description: "Entire raw text of the Balance column, all pages. Just the raw values." },
+      totalCreditSummary: { type: "NUMBER", nullable: true, description: "Explicit total credit from a printed summary section, or null if not present." },
+      totalDebitSummary: { type: "NUMBER", nullable: true, description: "Explicit total debit from a printed summary section, or null if not present." },
+      emiCount: { type: "NUMBER", description: "Count of EMI/loan debit transactions found." },
+      emiBreakdown: {
+        type: "ARRAY",
+        description: "Every individual EMI/loan transaction. Do not group.",
+        items: {
+          type: "OBJECT",
+          properties: {
+            descriptionSnippet: { type: "STRING", description: "5-8 word snippet of the transaction narration." },
+            emiAmount: { type: "NUMBER", description: "The debit amount for this EMI transaction." }
+          },
+          required: ["descriptionSnippet", "emiAmount"]
         }
-
-        /**
-         * Finds the statement period from the raw text.
-         */
-        function getStatementPeriod(fullText) {
-            // This function is kept for contextual information.
-            const dateMatch = fullText.match(/(\d{1,2}[\/-]\d{1,2}[\/-]\d{4}|\d{1,2} \w{3} \d{4})/g);
-            
-            if (dateMatch && dateMatch.length >= 2) {
-                const startDate = new Date(dateMatch[0]);
-                const endDate = new Date(dateMatch[dateMatch.length - 1]);
-                
-                if (isValidDate(startDate) && isValidDate(endDate)) {
-                     startDate.setHours(0, 0, 0, 0);
-                     endDate.setHours(23, 59, 59, 999); 
-                     
-                     return { startDate, endDate };
-                }
-            }
-            return { startDate: null, endDate: null };
-        }
-
-        // --- END OF GLOBAL HELPER FUNCTIONS ---
-
-
-        // Enable button when files are selected
-        fileInput.addEventListener('change', () => {
-            extractButton.disabled = fileInput.files.length === 0;
-            if (fileInput.files.length > 0) {
-                showMessage(`Ready to process ${fileInput.files.length} file(s).`, 'info');
-                analysisStatus.classList.add('hidden');
-            } else {
-                hideMessage();
-            }
-            document.getElementById('resultsCard').classList.add('hidden');
-        });
-
-        function showMessage(message, type) {
-            messageBox.textContent = message;
-            messageBox.className = `p-4 border rounded-xl mb-6 font-medium ${type} block`;
-        }
-
-        function hideMessage() {
-            messageBox.classList.add('hidden');
-        }
-
-        // --- PDF EXTRACTION FUNCTION ---
-
-        /**
-         * Reads a single PDF file and returns its raw text content broken down by page.
-         */
-        async function readPdfText(pdfFile) {
-            const arrayBuffer = await pdfFile.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            const pagesText = [];
-
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                const pageText = textContent.items.map(item => item.str).join(' ') + '\n';
-                pagesText.push(pageText);
-            }
-            // Return ALL pages concatenated into a single string for max speed/payload
-            return pagesText.join('\n[PAGE_BREAK]\n'); 
-        }
-
-        /**
-         * Cleans a number string (removes commas, currency, spaces) and converts to float.
-         */
-        function cleanNumber(value) {
-            if (value === null || value === undefined) return null;
-            if (typeof value === 'number') return value;
-            
-            // Aggressively remove all non-digit, non-decimal characters (for Lakh/Crore formats)
-            const cleanString = String(value).replace(/[^0-9.]/g, '');
-            const number = parseFloat(cleanString);
-            return isNaN(number) ? null : number;
-        }
-
-        /**
-         * Calculates the total sum from a raw text column string (e.g., the entire Debit column).
-         * NOTE: This function is the ultimate fix for the low totals error. It splits by whitespace 
-         * and attempts to parse ALL values, which proved more reliable than complex regex.
-         */
-        function cleanAndSumRawColumn(rawColumnString) {
-            if (!rawColumnString) return { total: 0, count: 0 };
-            
-            // Split the text by whitespace/newlines, filtering out empty strings and non-numeric junk.
-            // This is the highly robust method that catches numbers across columns.
-            const lines = rawColumnString.split(/\s+/).filter(line => line.trim().length > 0);
-            let total = 0;
-            let count = 0;
-
-            for (const line of lines) {
-                // Aggressively remove non-numeric separators (like commas for Lakhs/Crores)
-                const cleanedValue = line.replace(/[^0-9.]/g, '');
-                const number = parseFloat(cleanedValue);
-
-                if (!isNaN(number) && number > 0.01) { // Filter out residual 0s or tiny text specks
-                    total += number;
-                    count += 1;
-                }
-            }
-            return { total: Math.round(total * 100) / 100, count: count }; 
-        }
-        
-        // --- GEMINI API INTERACTION ---
-
-        // Separate function to ensure the API call works without the final pivot's complexity
-        async function callGeminiAPIWithRawColumns(fullText, fileName) {
-             const apiKey = document.getElementById('apiKeyInput').value.trim();
-             if (!apiKey) throw new Error("Please enter your Gemini API key in Step 1.");
-             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-             const MAX_RETRIES = 5; 
-             let delay = 1200; 
-
-             // Instructions: Extract the crucial balances and the raw text columns for JS to process.
-             const systemPrompt = `You are an expert financial analyst. Your task is to extract only the required data from the bank statement text. Find the opening/closing balances and the ENTIRE raw text of the Debit, Credit, and Balance columns. Additionally, search the transaction descriptions for patterns that indicate EMIs/Loans or Bounced transactions.
-             
-             When searching for EMIs/Loans, find every single individual EMI transaction and its amount. Do not group or sum them. Find keywords like 'EMI', 'LOAN', 'HCFUDUUBLO', 'FINCORP', 'ACH-DR' related to financing companies, or transfer notes that clearly indicate a repayment.`;
-
-             const responseSchema = {
-                type: "OBJECT",
-                properties: {
-                    // Resilient Balance Extraction: Find first/last balance *number* in the entire text
-                    openingBalance: { type: "NUMBER", description: "The absolute first balance number that appears in the transaction list." },
-                    closingBalance: { type: "NUMBER", description: "The absolute last balance number that appears in the transaction list." },
-                    rawDebitColumn: { type: "STRING", description: "The ENTIRE raw text of the Debit column content from all pages combined. Return only the raw text values, do not try to sum them." },
-                    rawCreditColumn: { type: "STRING", description: "The ENTIRE raw text of the Credit column content from all pages combined. Return only the raw text values, do not try to sum them." },
-                    rawBalanceColumn: { type: "STRING", description: "The ENTIRE raw text of the Balance column content from all pages combined. Return only the raw text values, do not try to sum them." },
-                    totalCreditSummary: { type: "NUMBER", nullable: true, description: "The explicit total credit amount found in a final summary, or null." },
-                    totalDebitSummary: { type: "NUMBER", nullable: true, description: "The explicit total debit amount found in a final summary, or null." },
-                    emiCount: { type: "NUMBER", description: "The count of transactions whose descriptions contain keywords like 'EMI', 'LOAN', 'HCFUDUUBLO', 'FINCORP', or specific loan IDs. (Return 0 if none found)" },
-                    emiBreakdown: { 
-                        type: "ARRAY", 
-                        description: "An array of objects, where each object represents one individual EMI transaction found. Do not group them.",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                // Changed to capture description for context, and amount
-                                descriptionSnippet: { type: "STRING", description: "A short snippet (5-8 words) of the transaction description containing the EMI keyword or loan reference." },
-                                emiAmount: { type: "NUMBER", description: "The amount debited for this individual EMI transaction." }
-                            },
-                            required: ["descriptionSnippet", "emiAmount"]
-                        }
-                    },
-                    bounceCount: { type: "NUMBER", description: "The count of transactions whose descriptions contain keywords like 'RETURN', 'BOUNCE', 'RTN', 'CMP Failed', or 'CHQ WDL RTN'. (Return 0 if none found)" },
-                },
-                required: ["openingBalance", "closingBalance", "rawDebitColumn", "rawCreditColumn", "rawBalanceColumn", "emiCount", "emiBreakdown", "bounceCount"]
-            };
-
-            const userQuery = `Analyze the full bank statement for ${fileName}. Text:\n\n${fullText}`;
-            
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: responseSchema,
-                }
-            };
-
-            for (let i = 0; i < MAX_RETRIES; i++) {
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (response.ok) {
-                        const result = await response.json();
-                        const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                        if (!jsonText) throw new Error("API returned an empty response.");
-                        
-                        const rawData = JSON.parse(jsonText);
-                        
-                        // Process the emiBreakdown safely, ensuring all values are numbers
-                        const emiBreakdownArray = [];
-                        if (Array.isArray(rawData.emiBreakdown)) {
-                            for (const item of rawData.emiBreakdown) {
-                                if (item.descriptionSnippet && item.emiAmount !== undefined) {
-                                    const cleanAmount = cleanNumber(item.emiAmount);
-                                    if (cleanAmount !== null && cleanAmount > 0) {
-                                        emiBreakdownArray.push({
-                                            descriptionSnippet: item.descriptionSnippet,
-                                            emiAmount: cleanAmount
-                                        });
-                                    }
-                                }
-                            }
-                        }
-
-                        return {
-                            openingBalance: cleanNumber(rawData.openingBalance),
-                            closingBalance: cleanNumber(rawData.closingBalance),
-                            rawDebitColumn: rawData.rawDebitColumn,
-                            rawCreditColumn: rawData.rawCreditColumn,
-                            rawBalanceColumn: rawData.rawBalanceColumn,
-                            totalCreditSummary: cleanNumber(rawData.totalCreditSummary),
-                            totalDebitSummary: cleanNumber(rawData.totalDebitSummary),
-                            emiCount: cleanNumber(rawData.emiCount) || 0,
-                            emiBreakdown: emiBreakdownArray,
-                            bounceCount: cleanNumber(rawData.bounceCount) || 0,
-                        };
-                    } else if (response.status === 429 || response.status >= 500) {
-                        if (i < MAX_RETRIES - 1) {
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            delay *= 2; 
-                        } else {
-                            throw new Error(`API request failed after ${MAX_RETRIES} attempts with status ${response.status}.`);
-                        }
-                    } else {
-                        const errorBody = await response.json();
-                        throw new Error(`API request failed with status ${response.status}: ${JSON.stringify(errorBody)}`);
-                    }
-                } catch (error) {
-                    if (i < MAX_RETRIES - 1 && error.message.includes('fetch')) {
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                        delay *= 2; 
-                    } else {
-                        throw error; 
-                    }
-                }
-            }
-        }
-        
-        // --- AGGREGATION AND CALCULATION ---
-        
-        /**
-         * Processes a single PDF file (calling AI once for the whole document).
-         */
-        async function processSinglePDF(pdfFile) {
-            // Update loader status
-            loaderText.textContent = `[1/2] Extracting raw text from ${pdfFile.name}...`;
-
-            // Read all pages into one large string
-            const fullText = await pdfFile.size === 0 ? '' : await readPdfText(pdfFile);
-
-            // Update loader status
-            loaderText.textContent = `[2/2] Sending ${pdfFile.name} to AI for data markers...`;
-
-            // Call AI once for the entire document
-            const rawData = await callGeminiAPIWithRawColumns(fullText, pdfFile.name);
-            
-            // 1. Calculate Totals (Credit/Debit)
-            let finalTotalCredit = rawData.totalCreditSummary;
-            let finalTotalDebit = rawData.totalDebitSummary;
-            let calculationMethod = 'Explicit Summary';
-
-            if (finalTotalCredit === null || finalTotalDebit === null) {
-                // Programmatic Calculation (Accurate fix for Lakh/Crore)
-                finalTotalCredit = cleanAndSumRawColumn(rawData.rawCreditColumn).total;
-                finalTotalDebit = cleanAndSumRawColumn(rawData.rawDebitColumn).total;
-                calculationMethod = 'Programmatic Calculation (Accurate)';
-            }
-            
-            // 2. Calculate Average Balance (ABB) using the Balance column data
-            const balanceData = cleanAndSumRawColumn(rawData.rawBalanceColumn);
-
-            return {
-                openingBalance: rawData.openingBalance,
-                closingBalance: rawData.closingBalance,
-                totalCredit: finalTotalCredit,
-                totalDebit: finalTotalDebit,
-                rawBalanceTotal: balanceData.total, 
-                rawBalanceCount: balanceData.count,
-                calculationMethod: calculationMethod,
-                emiCount: rawData.emiCount,
-                emiBreakdown: rawData.emiBreakdown,
-                bounceCount: rawData.bounceCount,
-            };
-        }
-        
-        /**
-         * Calculates the final combined summary from all processed files.
-         */
-        function combineAllFiles(allProcessedData) {
-            if (allProcessedData.length === 0) return null;
-
-            // 1. Get the true opening balance from the first file.
-            const finalOpeningBalance = allProcessedData[0].openingBalance;
-            
-            // 2. Get the true closing balance from the last file.
-            const lastIndex = allProcessedData.length - 1;
-            const finalClosingBalance = allProcessedData[lastIndex].closingBalance;
-
-            // 3. Sum all core financial metrics across all files.
-            let finalTotalCredit = allProcessedData.reduce((sum, data) => sum + data.totalCredit, 0);
-            let finalTotalDebit = allProcessedData.reduce((sum, data) => sum + data.totalDebit, 0);
-            
-            let combinedRawBalanceTotal = allProcessedData.reduce((sum, data) => sum + data.rawBalanceTotal, 0);
-            let combinedRawBalanceCount = allProcessedData.reduce((sum, data) => sum + data.rawBalanceCount, 0);
-
-            // Sum new metrics: emiCount and bounceCount
-            let finalEmiCount = allProcessedData.reduce((sum, data) => sum + data.emiCount, 0);
-            let finalBounceCount = allProcessedData.reduce((sum, data) => sum + data.bounceCount, 0);
-
-            // Aggregate EMI Breakdown: Collect all individual items from all files
-            const finalEmiBreakdown = [];
-            for (const data of allProcessedData) {
-                finalEmiBreakdown.push(...data.emiBreakdown);
-            }
-            
-            // Calculate the overall total EMI amount from the collected items
-            let finalEmiTotal = finalEmiBreakdown.reduce((sum, item) => sum + item.emiAmount, 0);
-
-
-            // 4. Calculate the ABB: Sum of all balances / Count of all balances (User's final required formula)
-            let averageBankingBalance = null;
-            if (combinedRawBalanceCount > 0) {
-                averageBankingBalance = combinedRawBalanceTotal / combinedRawBalanceCount;
-                averageBankingBalance = Math.round(averageBankingBalance * 100) / 100;
-            }
-
-            // Round final totals
-            finalTotalCredit = Math.round(finalTotalCredit * 100) / 100;
-            finalTotalDebit = Math.round(finalTotalDebit * 100) / 100;
-            finalEmiTotal = Math.round(finalEmiTotal * 100) / 100;
-
-            return {
-                openingBalance: finalOpeningBalance,
-                closingBalance: finalClosingBalance,
-                totalCredit: finalTotalCredit,
-                totalDebit: finalTotalDebit,
-                averageBankingBalance: averageBankingBalance,
-                emiCount: finalEmiCount,
-                emiTotal: finalEmiTotal,
-                emiBreakdown: finalEmiBreakdown, // Array of {descriptionSnippet, emiAmount}
-                bounceCount: finalBounceCount,
-                // Include raw metrics for verification
-                rawBalanceTotal: combinedRawBalanceTotal, 
-                rawBalanceCount: combinedRawBalanceCount
-            };
-        }
-
-        // --- MAIN EXECUTION FLOW ---
-
-        async function processFiles() {
-            const files = fileInput.files;
-            if (files.length === 0) return;
-
-            extractButton.disabled = true;
-            loader.classList.remove('hidden');
-            hideMessage();
-            document.getElementById('resultsCard').classList.add('hidden');
-
-            const allProcessedData = [];
-            let finalCalculationMethod = 'N/A';
-
-            try {
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    analysisStatus.textContent = `Processing file ${i + 1} of ${files.length}: ${file.name}`;
-                    analysisStatus.classList.remove('hidden');
-
-                    // Process the PDF file in ONE call for maximum speed
-                    const processedData = await processSinglePDF(file);
-                    allProcessedData.push(processedData);
-                    finalCalculationMethod = processedData.calculationMethod; // Track the method used
-                }
-
-                // Combine results from all files
-                const combinedData = combineAllFiles(allProcessedData);
-                extractedData = combinedData;
-
-                displayResults(combinedData, finalCalculationMethod, files.length);
-
-                showMessage(`Combined analysis of ${files.length} files complete. Totals calculated via: ${finalCalculationMethod}.`, 'success');
-
-            } catch (error) {
-                // Check for payload errors
-                if (error.message.includes('413') || error.message.includes('timed out') || error.message.includes('fetch')) {
-                    showMessage(`Analysis failed: The request timed out or the file size exceeded the limit. Please ensure the PDF is text-selectable.`, 'error');
-                } else {
-                    showMessage(`A fatal error occurred: ${error.message}. Please check your API key and file content.`, 'error');
-                }
-                console.error("Fatal error during processing:", error);
-            } finally {
-                extractButton.disabled = false;
-                loader.classList.add('hidden');
-                analysisStatus.classList.add('hidden');
-            }
-        }
-        
-        // --- DISPLAY AND EXCEL EXPORT ---
-
-        function formatCurrency(value) {
-            if (value === null || value === undefined) return 'N/A';
-            // Use 'en-IN' locale for Indian numbering format (Lakhs, Crores) for display
-            return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }).format(value).replace('₹', '');
-        }
-
-        function displayResults(data, method, fileCount) {
-            const summaryContent = document.getElementById('summaryContent');
-            
-            // Clear previous results
-            summaryContent.innerHTML = '';
-            
-            const items = [
-                { label: `Files Processed`, value: `${fileCount}` },
-                { label: 'Opening Balance (First File)', value: formatCurrency(data.openingBalance) },
-                { label: 'Closing Balance (Last File)', value: formatCurrency(data.closingBalance) },
-                { label: 'Total Credit', value: formatCurrency(data.totalCredit) },
-                { label: 'Total Debit', value: formatCurrency(data.totalDebit) },
-                { label: `Average Banking Balance (ABB) <span class="text-sm text-gray-500 font-normal ml-2">(Avg. of ${data.rawBalanceCount} balances)</span>`, value: formatCurrency(data.averageBankingBalance) },
-                { label: '---', value: '---' }, // Separator
-                { label: 'Total EMI/Loan Deductions (Count)', value: data.emiCount.toFixed(0) },
-                { label: 'Total EMI/Loan Deductions (Amount)', value: formatCurrency(data.emiTotal) },
-            ];
-
-            // Add EMI Breakdown details (Itemized as EMI 1, EMI 2, etc.)
-            if (data.emiBreakdown && data.emiBreakdown.length > 0) {
-                items.push({ label: 'Itemized EMI Deductions', value: '' });
-                
-                // Sort by amount descending for better readability
-                const sortedItems = [...data.emiBreakdown].sort((a, b) => b.emiAmount - a.emiAmount);
-                
-                sortedItems.forEach((item, index) => {
-                    const description = item.descriptionSnippet.trim().substring(0, 40) + '...';
-                    const label = `<span class="summary-indent text-gray-500">EMI ${index + 1} (${description})</span>`;
-                    items.push({ 
-                        label: label, 
-                        value: formatCurrency(item.emiAmount) 
-                    });
-                });
-            }
-
-            items.push(
-                { label: '---', value: '---' }, // Separator
-                { label: 'Bounced Transactions (Count)', value: data.bounceCount.toFixed(0) },
-                { label: `Totals Source`, value: `<span class="font-bold text-sm text-blue-600">${method}</span>` }
-            );
-
-
-            items.forEach(item => {
-                summaryContent.innerHTML += `
-                    <div class="summary-row">
-                        <span class="text-gray-600 font-medium">${item.label}</span>
-                        <span class="text-gray-900 font-semibold">${item.value}</span>
-                    </div>
-                `;
-            });
-            
-            document.getElementById('resultsCard').classList.remove('hidden');
-        }
-
-        function downloadExcel() {
-            if (!extractedData) {
-                showMessage('No data available to download.', 'error');
-                return;
-            }
-
-            const data = extractedData;
-            
-            // Prepare Summary Sheet Data
-            const summaryData = [
-                ["Financial Summary", ""],
-                ["Metric", "Value"],
-                ["Opening Balance (First File)", data.openingBalance],
-                ["Closing Balance (Last File)", data.closingBalance],
-                ["Total Credit", data.totalCredit],
-                ["Total Debit", data.totalDebit],
-                ["Average Banking Balance (ABB)", data.averageBankingBalance],
-                ["", ""], // Blank row
-                ["Total EMI/Loan Deductions (Count)", data.emiCount],
-                ["Total EMI/Loan Deductions (Amount)", data.emiTotal],
-            ];
-
-            // Prepare Itemized EMI Sheet Data
-            const itemizedEmiData = [
-                ["EMI Breakdown (Itemized)", ""],
-                ["EMI No.", "Amount (INR)", "Description Snippet"],
-            ];
-            
-            if (data.emiBreakdown && data.emiBreakdown.length > 0) {
-                data.emiBreakdown.forEach((item, index) => {
-                    itemizedEmiData.push([`EMI ${index + 1}`, item.emiAmount, item.descriptionSnippet]);
-                });
-            }
-
-            // Create Workbook
-            const wb = XLSX.utils.book_new();
-
-            // Add Summary Sheet
-            const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-            wsSummary['!cols'] = [{ wch: 30 }, { wch: 20 }];
-            XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
-
-            // Add Itemized EMI Sheet
-            const wsItemized = XLSX.utils.aoa_to_sheet(itemizedEmiData);
-            wsItemized['!cols'] = [{ wch: 10 }, { wch: 15 }, { wch: 50 }];
-            XLSX.utils.book_append_sheet(wb, wsItemized, "Itemized EMIs");
-
-            // Add Bounce Count (Final line on Summary sheet)
-            summaryData.push(
-                ["", ""], // Blank row
-                ["Bounced Transactions (Count)", data.bounceCount]
-            );
-
-
-            // Write and download
-            XLSX.writeFile(wb, "Bank_Statement_Summary.xlsx");
-        }
-        
-        // Initial setup
-        document.addEventListener('DOMContentLoaded', () => {
-             const fileInput = document.getElementById('pdfFile');
-             const extractButton = document.getElementById('extractButton');
-             
-             // Check if files were retained across sessions (unlikely, but defensive check)
-             if (fileInput.files.length > 0) {
-                 extractButton.disabled = false;
-             }
-        });
-
-    </script>
+      },
+      bounceCount: { type: "NUMBER", description: "Count of bounced/returned transactions." }
+    },
+    required: ["openingBalance", "closingBalance", "rawDebitColumn", "rawCreditColumn", "rawBalanceColumn", "emiCount", "emiBreakdown", "bounceCount"]
+  };
+ 
+  const payload = {
+    contents: [{ parts: [{ text: `Analyze this bank statement for file: ${fileName}\n\n${text}` }] }],
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: schema,
+      temperature: 0.1
+    }
+  };
+ 
+  const MAX_RETRIES = 4;
+  let delay = 1500;
+ 
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+ 
+    if (res.ok) {
+      const json = await res.json();
+      const raw = json.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!raw) throw new Error('Gemini returned an empty response.');
+      return JSON.parse(raw);
+    }
+ 
+    const errBody = await res.json().catch(() => ({}));
+    const errMsg = errBody?.error?.message || `HTTP ${res.status}`;
+ 
+    if (res.status === 429 && attempt < MAX_RETRIES - 1) {
+      await new Promise(r => setTimeout(r, delay));
+      delay *= 2;
+      continue;
+    }
+    throw new Error(`API request failed with status ${res.status}: ${JSON.stringify(errBody)}`);
+  }
+}
+ 
+// ─── Process Single File ──────────────────────────────────────────────────────
+async function processSingleFile(file, apiKey) {
+  const text = await readPdfText(file);
+  setStage(1);
+  const raw = await callGemini(text, file.name, apiKey);
+  setStage(2);
+ 
+  let totalCredit = raw.totalCreditSummary;
+  let totalDebit = raw.totalDebitSummary;
+  let method = 'Explicit Summary';
+ 
+  if (!totalCredit || !totalDebit) {
+    totalCredit = sumRawCol(raw.rawCreditColumn).total;
+    totalDebit = sumRawCol(raw.rawDebitColumn).total;
+    method = 'Programmatic (High Accuracy)';
+  }
+ 
+  const balData = sumRawCol(raw.rawBalanceColumn);
+ 
+  const emiBreakdown = (raw.emiBreakdown || []).map(e => ({
+    descriptionSnippet: e.descriptionSnippet || '',
+    emiAmount: cleanNum(e.emiAmount) || 0
+  })).filter(e => e.emiAmount > 0);
+ 
+  return {
+    openingBalance: cleanNum(raw.openingBalance),
+    closingBalance: cleanNum(raw.closingBalance),
+    totalCredit: Math.round(totalCredit * 100) / 100,
+    totalDebit: Math.round(totalDebit * 100) / 100,
+    balTotal: balData.total,
+    balCount: balData.count,
+    emiCount: cleanNum(raw.emiCount) || 0,
+    emiBreakdown,
+    bounceCount: cleanNum(raw.bounceCount) || 0,
+    method
+  };
+}
+ 
+// ─── Combine Results ──────────────────────────────────────────────────────────
+function combineResults(all) {
+  const first = all[0], last = all[all.length - 1];
+  const totalCredit = Math.round(all.reduce((s, d) => s + d.totalCredit, 0) * 100) / 100;
+  const totalDebit = Math.round(all.reduce((s, d) => s + d.totalDebit, 0) * 100) / 100;
+  const balTotal = all.reduce((s, d) => s + d.balTotal, 0);
+  const balCount = all.reduce((s, d) => s + d.balCount, 0);
+  const emiBreakdown = all.flatMap(d => d.emiBreakdown);
+  const emiTotal = Math.round(emiBreakdown.reduce((s, e) => s + e.emiAmount, 0) * 100) / 100;
+ 
+  return {
+    openingBalance: first.openingBalance,
+    closingBalance: last.closingBalance,
+    totalCredit,
+    totalDebit,
+    averageBankingBalance: balCount > 0 ? Math.round((balTotal / balCount) * 100) / 100 : null,
+    emiCount: all.reduce((s, d) => s + d.emiCount, 0),
+    emiTotal,
+    emiBreakdown,
+    bounceCount: all.reduce((s, d) => s + d.bounceCount, 0),
+    balCount,
+    method: last.method
+  };
+}
+ 
+// ─── Render Results ───────────────────────────────────────────────────────────
+function renderResults(data, fileCount) {
+  // Method badge
+  const badge = document.getElementById('methodBadge');
+  badge.textContent = data.method;
+  badge.className = `results-badge ${data.method.includes('Programmatic') ? 'programmatic' : 'summary'}`;
+ 
+  document.getElementById('resultsMeta').textContent =
+    `${fileCount} file${fileCount > 1 ? 's' : ''} · ${data.balCount} balance entries processed`;
+ 
+  // Metrics
+  const grid = document.getElementById('metricsGrid');
+  grid.innerHTML = `
+    <div class="metric-cell">
+      <div class="metric-label">Opening Balance</div>
+      <div class="metric-value accent">₹ ${fmt(data.openingBalance)}</div>
+      <div class="metric-sub">First transaction</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Closing Balance</div>
+      <div class="metric-value accent">₹ ${fmt(data.closingBalance)}</div>
+      <div class="metric-sub">Last transaction</div>
+    </div>
+    <div class="metric-separator">Transaction Totals</div>
+    <div class="metric-cell">
+      <div class="metric-label">Total Credits</div>
+      <div class="metric-value credit">₹ ${fmt(data.totalCredit)}</div>
+      <div class="metric-sub">All inflows</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Total Debits</div>
+      <div class="metric-value debit">₹ ${fmt(data.totalDebit)}</div>
+      <div class="metric-sub">All outflows</div>
+    </div>
+    <div class="metric-cell full highlight">
+      <div class="metric-label">Average Banking Balance (ABB)</div>
+      <div class="metric-value">₹ ${fmt(data.averageBankingBalance)}</div>
+      <div class="metric-sub">Average of ${data.balCount} balance readings</div>
+    </div>
+    <div class="metric-separator">Loan / EMI Summary</div>
+    <div class="metric-cell">
+      <div class="metric-label">Total EMI Amount</div>
+      <div class="metric-value emi">₹ ${fmt(data.emiTotal)}</div>
+      <div class="metric-sub">${data.emiCount} deduction(s) found</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Net Flow</div>
+      <div class="metric-value ${data.totalCredit >= data.totalDebit ? 'credit' : 'debit'}">₹ ${fmt(Math.abs(data.totalCredit - data.totalDebit))}</div>
+      <div class="metric-sub">${data.totalCredit >= data.totalDebit ? 'Net positive' : 'Net negative'}</div>
+    </div>
+  `;
+ 
+  // EMI Breakdown
+  const emiSec = document.getElementById('emiSection');
+  if (data.emiBreakdown.length > 0) {
+    emiSec.style.display = 'block';
+    document.getElementById('emiCountBadge').textContent = `${data.emiBreakdown.length} items`;
+    const sorted = [...data.emiBreakdown].sort((a, b) => b.emiAmount - a.emiAmount);
+    document.getElementById('emiList').innerHTML = sorted.map((e, i) => `
+      <div class="emi-row">
+        <span class="emi-row-num">#${i + 1}</span>
+        <span class="emi-row-desc" title="${e.descriptionSnippet}">${e.descriptionSnippet}</span>
+        <span class="emi-row-amt">₹ ${fmt(e.emiAmount)}</span>
+      </div>
+    `).join('');
+  } else {
+    emiSec.style.display = 'none';
+  }
+ 
+  // Bounce
+  document.getElementById('bounceVal').textContent = data.bounceCount;
+ 
+  document.getElementById('resultsCard').classList.add('show');
+}
+ 
+// ─── Main Flow ────────────────────────────────────────────────────────────────
+async function runAnalysis() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const files = pdfInput.files;
+ 
+  if (!apiKey) return showAlert('Please enter your Gemini API key in Step 1.', 'error');
+  if (!apiKey.startsWith('AIza')) return showAlert('That doesn\'t look like a valid Gemini API key. It should start with "AIza".', 'error');
+  if (!files.length) return showAlert('Please select at least one PDF file.', 'error');
+ 
+  hideAlert();
+  analyzeBtn.disabled = true;
+  document.getElementById('resultsCard').classList.remove('show');
+  document.getElementById('progressWrap').classList.add('show');
+  setStage(0);
+ 
+  const allResults = [];
+ 
+  try {
+    for (let i = 0; i < files.length; i++) {
+      document.getElementById('progressLabel').textContent =
+        `Processing file ${i + 1} of ${files.length}: ${files[i].name}`;
+      setStage(0);
+      const result = await processSingleFile(files[i], apiKey);
+      allResults.push(result);
+    }
+ 
+    setStage(3);
+    const combined = combineResults(allResults);
+    extractedData = combined;
+ 
+    setStage(4);
+    await new Promise(r => setTimeout(r, 300));
+    renderResults(combined, files.length);
+    showAlert(`✓ Analysis complete — ${files.length} file${files.length > 1 ? 's' : ''} processed successfully.`, 'success');
+ 
+  } catch (err) {
+    const msg = err.message || 'Unknown error';
+    showAlert(msg, 'error');
+    console.error(err);
+  } finally {
+    analyzeBtn.disabled = false;
+    document.getElementById('progressWrap').classList.remove('show');
+    for (let i = 0; i <= 4; i++) document.getElementById(`stage${i}`).className = 'stage-item';
+  }
+}
+ 
+// ─── Excel Export ─────────────────────────────────────────────────────────────
+function downloadExcel() {
+  if (!extractedData) return;
+  const d = extractedData;
+ 
+  const summary = [
+    ['StatementIQ — Financial Summary', ''],
+    ['', ''],
+    ['Metric', 'Value (INR)'],
+    ['Opening Balance', d.openingBalance],
+    ['Closing Balance', d.closingBalance],
+    ['Total Credits', d.totalCredit],
+    ['Total Debits', d.totalDebit],
+    ['Net Flow', d.totalCredit - d.totalDebit],
+    ['Average Banking Balance (ABB)', d.averageBankingBalance],
+    ['', ''],
+    ['Total EMI Amount', d.emiTotal],
+    ['EMI Count', d.emiCount],
+    ['Bounced Transactions', d.bounceCount],
+    ['', ''],
+    ['Calculation Method', d.method],
+    ['Balance Entries Used', d.balCount],
+  ];
+ 
+  const emiRows = [
+    ['EMI / Loan Breakdown', '', ''],
+    ['#', 'Amount (INR)', 'Description'],
+    ...([...d.emiBreakdown].sort((a, b) => b.emiAmount - a.emiAmount)
+      .map((e, i) => [i + 1, e.emiAmount, e.descriptionSnippet]))
+  ];
+ 
+  const wb = XLSX.utils.book_new();
+  const wsSummary = XLSX.utils.aoa_to_sheet(summary);
+  wsSummary['!cols'] = [{ wch: 35 }, { wch: 22 }];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+ 
+  if (d.emiBreakdown.length > 0) {
+    const wsEMI = XLSX.utils.aoa_to_sheet(emiRows);
+    wsEMI['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 55 }];
+    XLSX.utils.book_append_sheet(wb, wsEMI, 'EMI Breakdown');
+  }
+ 
+  XLSX.writeFile(wb, 'StatementIQ_Report.xlsx');
+}
+</script>
 </body>
 </html>
+ 
